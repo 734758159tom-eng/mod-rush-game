@@ -1,0 +1,4696 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MOD RUSH · 取模节奏门</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+    body {
+      background: #111412;
+      color: #f7f4e9;
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      letter-spacing: 0;
+      user-select: none;
+    }
+    button { font: inherit; letter-spacing: 0; }
+    #app { position: relative; width: 100vw; height: 100vh; background: #111412; }
+    #game { position: absolute; inset: 0; display: block; width: 100%; height: 100%; contain: strict; }
+
+    .hud {
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      right: 10px;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(168px, 1fr) minmax(220px, 360px) minmax(168px, 1fr);
+      gap: 8px;
+      align-items: start;
+      pointer-events: none;
+    }
+    .hud-left, .hud-right {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .hud-right { justify-content: flex-end; }
+    .stat, .challenge, .judge-pop {
+      border: 1px solid rgba(247, 244, 233, .16);
+      border-radius: 8px;
+      background: rgba(16, 18, 19, .94);
+      backdrop-filter: none;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+      contain: paint;
+    }
+    .stat {
+      min-width: 58px;
+      padding: 6px 8px;
+      text-align: center;
+    }
+    .stat-label {
+      display: block;
+      font-size: 11px;
+      line-height: 1.1;
+      color: rgba(247, 244, 233, .58);
+    }
+    .stat-value {
+      display: block;
+      margin-top: 3px;
+      color: #f8d84a;
+      font-size: 16px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .history-stat { min-width: 92px; }
+    .history-stat .stat-value { font-size: 14px; white-space: nowrap; }
+    .energy-stat { min-width: 88px; }
+    .energy-bar {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-top: 6px;
+    }
+    .energy-cell {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(247, 244, 233, .16);
+      border: 1px solid rgba(247, 244, 233, .18);
+    }
+    .energy-cell.on {
+      background: #ff6b9e;
+      border-color: rgba(255, 177, 219, .68);
+      box-shadow: 0 0 12px rgba(255, 107, 158, .5);
+    }
+    .energy-cell.danger.on {
+      background: #f65b5b;
+      border-color: rgba(246, 91, 91, .72);
+      box-shadow: 0 0 12px rgba(246, 91, 91, .48);
+    }
+    .energy-cell.drop {
+      background: #4ee6a8;
+      box-shadow: 0 0 10px rgba(78, 230, 168, .44);
+    }
+    .exit-game-btn {
+      min-width: 56px;
+      padding: 7px 10px;
+      border: 1px solid rgba(247, 244, 233, .2);
+      border-radius: 8px;
+      color: rgba(247, 244, 233, .88);
+      background: rgba(16, 18, 19, .94);
+      backdrop-filter: none;
+      cursor: pointer;
+      pointer-events: auto;
+      font-weight: 800;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .24);
+      transition: border-color .16s, background .16s, transform .12s, box-shadow .16s;
+    }
+    .exit-game-btn:hover, .exit-game-btn:focus-visible {
+      border-color: rgba(248, 216, 74, .72);
+      background: rgba(248, 216, 74, .14);
+      box-shadow: 0 0 24px rgba(248, 216, 74, .18);
+      outline: none;
+    }
+    .exit-game-btn:active { transform: scale(.97); }
+    .pause-game-btn {
+      border-color: rgba(123, 223, 242, .34);
+      color: #9cecff;
+    }
+    .challenge {
+      padding: 7px 12px 8px;
+      text-align: center;
+    }
+    .challenge .label {
+      font-size: 12px;
+      color: rgba(247, 244, 233, .58);
+      line-height: 1.2;
+    }
+    .challenge .value {
+      margin-top: 5px;
+      color: #4ee6a8;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.2;
+      text-shadow: 0 0 20px rgba(78, 230, 168, .42);
+    }
+    .question-line {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .question-line + .question-line { margin-top: 3px; }
+    .question-tag {
+      flex: 0 0 auto;
+      color: rgba(247, 244, 233, .58);
+      font-family: "Microsoft YaHei", sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .question-expression {
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: clamp(12px, 1.55vw, 18px);
+    }
+    .question-line.next .question-expression {
+      color: rgba(123, 223, 242, .76);
+      font-size: 13px;
+      text-shadow: none;
+    }
+    .challenge .hint {
+      margin-top: 5px;
+      font-size: 12px;
+      color: rgba(247, 244, 233, .62);
+      line-height: 1.3;
+    }
+
+    .judge-pop {
+      position: absolute;
+      left: 50%;
+      top: auto;
+      bottom: 88px;
+      z-index: 35;
+      min-width: 190px;
+      padding: 9px 16px;
+      text-align: center;
+      opacity: 0;
+      transform: translate(-50%, 0) scale(.92);
+      pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .judge-pop.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    .judge-title {
+      font-size: 26px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .judge-sub {
+      margin-top: 7px;
+      font-size: 12px;
+      color: rgba(247, 244, 233, .72);
+    }
+    .judge-pop.perfect { border-color: rgba(255, 177, 219, .65); box-shadow: 0 0 40px rgba(255, 177, 219, .24); }
+    .judge-pop.perfect .judge-title { color: #ffb1db; }
+    .judge-pop.great { border-color: rgba(78, 230, 168, .62); box-shadow: 0 0 40px rgba(78, 230, 168, .22); }
+    .judge-pop.great .judge-title { color: #4ee6a8; }
+    .judge-pop.wrong { border-color: rgba(246, 91, 91, .62); box-shadow: 0 0 40px rgba(246, 91, 91, .22); }
+    .judge-pop.wrong .judge-title { color: #f65b5b; }
+    .judge-pop.miss { border-color: rgba(248, 216, 74, .62); box-shadow: 0 0 40px rgba(248, 216, 74, .2); }
+    .judge-pop.miss .judge-title { color: #f8d84a; }
+
+    .lane-controls {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 58px;
+      bottom: 14px;
+      z-index: 22;
+      pointer-events: none;
+    }
+    .lane-btn {
+      position: absolute;
+      top: 0;
+      min-width: 0;
+      height: 58px;
+      padding: 0 10px;
+      border: 1px solid rgba(247, 244, 233, .18);
+      border-radius: 8px;
+      color: #f7f4e9;
+      background: rgba(16, 18, 19, .94);
+      backdrop-filter: none;
+      cursor: pointer;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateX(-50%);
+      pointer-events: auto;
+      transition: border-color .16s, background .16s, transform .12s, box-shadow .16s;
+      contain: paint;
+    }
+    .lane-btn:hover, .lane-btn.flash {
+      border-color: rgba(248, 216, 74, .72);
+      background: rgba(248, 216, 74, .12);
+      box-shadow: 0 0 24px rgba(248, 216, 74, .16);
+    }
+    .lane-btn:active { transform: translateX(-50%) scale(.98); }
+    .lane-key {
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: rgba(247, 244, 233, .11);
+      border: 1px solid rgba(247, 244, 233, .16);
+      color: #f8d84a;
+      font-weight: 800;
+      font-size: 20px;
+    }
+    .lane-name { display: none; }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      z-index: 60;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: transparent;
+      overflow: hidden;
+    }
+    #app.menuing .hud,
+    #app.menuing .lane-controls,
+    #app.counting .hud,
+    #app.counting .lane-controls,
+    #app.resulting .hud,
+    #app.resulting .lane-controls {
+      display: none;
+    }
+    #startScreen {
+      backdrop-filter: none;
+    }
+    .screen.active { display: flex; }
+    .panel {
+      width: min(980px, 96vw);
+      max-height: calc(100vh - 36px);
+      overflow: auto;
+      border-radius: 8px;
+      border: 1px solid rgba(247, 244, 233, .18);
+      background: rgba(18, 20, 20, .95);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .42);
+      padding: 24px;
+      position: relative;
+    }
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 3px;
+      background: linear-gradient(90deg, #ffb1db, #4ee6a8, #f8d84a, #7bdff2);
+    }
+    .title {
+      margin: 0;
+      color: #f7f4e9;
+      font-size: 36px;
+      font-weight: 900;
+      line-height: 1.08;
+    }
+    .title span { color: #ffb1db; text-shadow: 0 0 22px rgba(255, 177, 219, .35); }
+    .subtitle {
+      margin: 10px 0 0;
+      color: rgba(247, 244, 233, .72);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .start-panel {
+      width: min(720px, 94vw);
+      max-height: calc(100vh - 24px);
+      overflow: hidden;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+    }
+    .start-panel::before {
+      display: none;
+    }
+    .start-panel .title {
+      text-align: center;
+      font-size: clamp(40px, 6vw, 68px);
+      letter-spacing: 8px;
+      text-shadow:
+        0 0 10px rgba(255, 177, 219, .72),
+        0 0 28px rgba(78, 230, 168, .34),
+        0 0 58px rgba(123, 223, 242, .22);
+      animation: titlePulse 3s ease-in-out infinite;
+    }
+    @keyframes titlePulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.18); }
+    }
+    .start-panel .subtitle {
+      text-align: center;
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 3px;
+      color: rgba(247, 244, 233, .66);
+    }
+    .start-panel.compact {
+      height: calc(100vh - 24px);
+      justify-content: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+    .start-panel.compact .title {
+      flex: 0 0 auto;
+      font-size: 38px;
+      letter-spacing: 4px;
+      line-height: 1.12;
+    }
+    .start-panel.compact .subtitle { display: none; }
+    .menu-step {
+      display: none;
+      width: 100%;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .menu-step.active { display: flex; }
+    #setupStep.active,
+    #challengeStep.active {
+      gap: 9px;
+    }
+    #guideStep.active { gap: 11px; }
+    .setup-head {
+      width: min(560px, 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: rgba(247, 244, 233, .66);
+      font-size: 13px;
+      letter-spacing: 2px;
+    }
+    .mode-badge {
+      color: #7bdff2;
+      text-shadow: 0 0 16px rgba(123, 223, 242, .36);
+    }
+    .setup-block {
+      width: min(640px, 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .start-panel.compact .setup-block { gap: 7px; }
+    .setup-label {
+      color: rgba(123, 223, 242, .72);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-align: center;
+    }
+    .section-label {
+      margin: 14px 0 7px;
+      color: rgba(247, 244, 233, .62);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .start-panel .section-label {
+      margin: 4px 0 0;
+      color: rgba(123, 223, 242, .72);
+      letter-spacing: 2px;
+      text-align: center;
+    }
+    .song-grid, .option-grid {
+      display: grid;
+      gap: 10px;
+      width: 100%;
+    }
+    .song-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .speed-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .setup-block .song-grid,
+    .setup-block .option-grid {
+      width: min(580px, 100%);
+    }
+    .select-card, .select-pill {
+      border: 1px solid rgba(247, 244, 233, .13);
+      border-radius: 8px;
+      background: rgba(247, 244, 233, .055);
+      color: #f7f4e9;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .16s, background .16s, box-shadow .16s, transform .12s;
+    }
+    .select-card {
+      min-height: 132px;
+      padding: 14px;
+    }
+    .start-panel .select-card {
+      min-height: 48px;
+      padding: 9px 12px;
+      text-align: center;
+    }
+    .setup-block .select-card,
+    .setup-block .select-pill {
+      min-height: 56px;
+      border: 1.5px solid rgba(0, 212, 255, .22);
+      background: rgba(0, 24, 51, .36);
+      color: rgba(123, 223, 242, .82);
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    .setup-block .select-card.on,
+    .setup-block .select-pill.on {
+      border-color: #00d4ff;
+      background: rgba(0, 212, 255, .12);
+      box-shadow: 0 0 16px rgba(0, 212, 255, .28);
+    }
+    .start-panel .mode-grid {
+      width: min(720px, 100%);
+    }
+    .start-panel .mode-card {
+      min-height: 92px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .challenge-song-card {
+      position: relative;
+      min-height: 96px;
+      overflow: hidden;
+    }
+    .challenge-stars {
+      margin-top: 9px;
+      color: #f8d84a;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-shadow: 0 0 16px rgba(248, 216, 74, .35);
+    }
+    .challenge-stars .off {
+      color: rgba(247, 244, 233, .22);
+      text-shadow: none;
+    }
+    .song-record {
+      margin-top: 7px;
+      color: #f8d84a;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+    .select-card:hover, .select-card.on, .select-pill:hover, .select-pill.on {
+      border-color: var(--accent);
+      background: rgba(247, 244, 233, .09);
+      box-shadow: 0 0 24px color-mix(in srgb, var(--accent), transparent 72%);
+    }
+    .select-card:active, .select-pill:active { transform: scale(.99); }
+    .song-title {
+      color: var(--accent);
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .start-panel .song-title { font-size: 16px; }
+    .start-panel .mode-card .song-title { font-size: 22px; }
+    .song-sub {
+      margin-top: 7px;
+      color: rgba(247, 244, 233, .72);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .start-panel .song-sub {
+      display: none;
+    }
+    .start-panel .mode-card .song-sub {
+      display: block;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .song-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .start-panel .song-tags { display: none; }
+    .tag {
+      border: 1px solid rgba(247, 244, 233, .12);
+      border-radius: 6px;
+      padding: 4px 7px;
+      color: rgba(247, 244, 233, .68);
+      background: rgba(247, 244, 233, .045);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .select-pill {
+      min-height: 62px;
+      padding: 10px 12px;
+    }
+    .start-panel .select-pill {
+      min-height: 39px;
+      padding: 7px 9px;
+      text-align: center;
+    }
+    .pill-main {
+      display: block;
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.2;
+    }
+    .pill-sub {
+      display: block;
+      margin-top: 4px;
+      color: rgba(247, 244, 233, .62);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .start-panel .pill-sub { display: none; }
+    .setup-columns {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: start;
+      width: 100%;
+    }
+    .rules-box {
+      margin-top: 5px;
+      padding: 8px 18px;
+      max-width: 580px;
+      border: 1px solid rgba(123, 223, 242, .2);
+      border-radius: 10px;
+      background: rgba(0, 24, 51, .58);
+      color: rgba(247, 244, 233, .66);
+      font-size: 12px;
+      line-height: 1.55;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    .rules-box .hl { color: #4ee6a8; font-weight: 800; }
+    .knowledge {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .knowledge-item {
+      min-height: 78px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(247, 244, 233, .12);
+      background: rgba(247, 244, 233, .055);
+    }
+    .knowledge-item .k-title {
+      display: block;
+      color: #f8d84a;
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .knowledge-item .k-desc {
+      display: block;
+      margin-top: 6px;
+      color: rgba(247, 244, 233, .68);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+    .start-panel .actions {
+      justify-content: center;
+      margin-top: 0;
+    }
+    .guide-entry {
+      min-height: 42px;
+      padding: 0 22px;
+      border-color: rgba(248, 216, 74, .34);
+      color: #f8d84a;
+    }
+    .guide-entry:hover {
+      border-color: rgba(248, 216, 74, .68);
+      background: rgba(248, 216, 74, .1);
+    }
+    .guide-steps {
+      width: min(660px, 100%);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .guide-step-card {
+      min-height: 82px;
+      padding: 11px 10px;
+      border: 1px solid rgba(123, 223, 242, .22);
+      border-radius: 8px;
+      background: rgba(0, 24, 51, .42);
+      text-align: center;
+    }
+    .guide-step-number {
+      display: inline-flex;
+      width: 24px;
+      height: 24px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: #7bdff2;
+      color: #08202a;
+      font-weight: 900;
+    }
+    .guide-step-text {
+      display: block;
+      margin-top: 7px;
+      color: rgba(247, 244, 233, .82);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .guide-practice {
+      width: min(660px, 100%);
+      padding: 13px;
+      border: 1px solid rgba(255, 177, 219, .3);
+      border-radius: 8px;
+      background: rgba(18, 20, 20, .76);
+      text-align: center;
+    }
+    .guide-question {
+      color: #fff7e8;
+      font: 900 23px Consolas, "Courier New", monospace;
+    }
+    .guide-hint {
+      min-height: 22px;
+      margin-top: 6px;
+      color: rgba(247, 244, 233, .7);
+      font-size: 13px;
+    }
+    .guide-hint.success { color: #4ee6a8; font-weight: 900; }
+    .guide-hint.try-again { color: #f8d84a; font-weight: 800; }
+    .guide-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 10px;
+    }
+    .guide-option {
+      min-height: 54px;
+      border: 1px solid rgba(247, 244, 233, .2);
+      border-radius: 8px;
+      background: rgba(247, 244, 233, .07);
+      color: #f7f4e9;
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .guide-option b { color: #f8d84a; margin-right: 10px; }
+    .guide-option.correct {
+      border-color: #4ee6a8;
+      background: rgba(78, 230, 168, .14);
+      box-shadow: 0 0 18px rgba(78, 230, 168, .22);
+    }
+    .guide-option.wrong { animation: guideShake .24s linear; }
+    @keyframes guideShake {
+      0%, 100% { transform: translateX(0); }
+      35% { transform: translateX(-5px); }
+      70% { transform: translateX(5px); }
+    }
+    .primary, .ghost {
+      min-height: 44px;
+      border-radius: 8px;
+      border: 0;
+      padding: 0 20px;
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform .12s, filter .16s, background .16s;
+    }
+    .primary { background: #ffb1db; color: #25111d; box-shadow: 0 8px 0 #b86f96; }
+    .start-panel .primary {
+      min-height: 78px;
+      padding: 0 84px;
+      font-size: 28px;
+      letter-spacing: 5px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #1592e6, #19d6f5);
+      color: #fff;
+      box-shadow: 0 0 34px rgba(0, 170, 255, .34);
+    }
+    .primary:hover { filter: brightness(1.05); }
+    .primary:active { transform: translateY(5px); box-shadow: 0 3px 0 #b86f96; }
+    .ghost {
+      border: 1px solid rgba(247, 244, 233, .14);
+      background: rgba(247, 244, 233, .08);
+      color: #f7f4e9;
+    }
+    .ghost:hover { background: rgba(247, 244, 233, .12); }
+    .menu-footer {
+      min-width: min(420px, 92vw);
+      padding: 9px 22px;
+      border: 1px solid rgba(0, 212, 255, .2);
+      border-radius: 999px;
+      color: rgba(123, 223, 242, .78);
+      background: rgba(0, 24, 51, .38);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+      letter-spacing: 2px;
+      text-align: center;
+      backdrop-filter: blur(8px);
+    }
+    .countdown-screen {
+      position: absolute;
+      inset: 0;
+      z-index: 70;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      pointer-events: none;
+      background: radial-gradient(circle at center, rgba(0, 24, 51, .36), transparent 56%);
+    }
+    .countdown-screen.show { display: flex; }
+    .pause-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(8, 12, 14, .7);
+      backdrop-filter: blur(10px);
+      pointer-events: auto;
+    }
+    .pause-screen.show { display: flex; }
+    .pause-panel {
+      width: min(420px, calc(100vw - 32px));
+      padding: 24px;
+      border: 1px solid rgba(123, 223, 242, .34);
+      border-radius: 8px;
+      background: rgba(16, 18, 19, .94);
+      box-shadow: 0 0 44px rgba(0, 212, 255, .2);
+      text-align: center;
+    }
+    .pause-title {
+      color: #7bdff2;
+      font-size: 30px;
+      font-weight: 900;
+      text-shadow: 0 0 22px rgba(123, 223, 242, .42);
+    }
+    .pause-copy {
+      margin-top: 8px;
+      color: rgba(247, 244, 233, .72);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .pause-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .pause-actions .pause-action {
+      box-sizing: border-box;
+      flex: 0 0 calc(50% - 5px);
+      width: calc(50% - 5px);
+      max-width: 156px;
+      min-width: 0;
+      min-height: 64px;
+      padding: 0 16px;
+      border-radius: 8px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .pause-actions .pause-exit {
+      border: 1px solid rgba(247, 244, 233, .16);
+      background: #262827;
+      color: #f7f4e9;
+      box-shadow: 0 8px 0 #151716;
+    }
+    .pause-actions .pause-exit:hover { background: #303332; }
+    .pause-actions .pause-exit:active {
+      transform: translateY(5px);
+      box-shadow: 0 3px 0 #151716;
+    }
+    .countdown-rules {
+      width: min(560px, calc(100vw - 32px));
+      margin-bottom: 20px;
+      padding: 14px 18px;
+      border-radius: 8px;
+      border: 1px solid rgba(123, 223, 242, .28);
+      background: rgba(16, 18, 19, .78);
+      box-shadow: 0 0 34px rgba(0, 212, 255, .18);
+      text-align: center;
+      color: rgba(247, 244, 233, .74);
+      backdrop-filter: blur(10px);
+    }
+    .countdown-rules .rule-title {
+      color: #7bdff2;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+    .countdown-rules .rule-line {
+      margin-top: 7px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .countdown-rules b { color: #f8d84a; }
+    .countdown-title {
+      color: #7bdff2;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: clamp(64px, 11vw, 132px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: 8px;
+      text-shadow:
+        0 0 18px rgba(123, 223, 242, .95),
+        0 0 54px rgba(78, 230, 168, .48),
+        0 0 92px rgba(255, 177, 219, .28);
+      animation: cdPop .72s ease-out;
+    }
+    .countdown-sub {
+      margin-top: 12px;
+      color: rgba(247, 244, 233, .72);
+      font-size: 15px;
+      letter-spacing: 4px;
+    }
+    @keyframes cdPop {
+      0% { opacity: 0; transform: scale(1.45); }
+      32% { opacity: 1; transform: scale(1); }
+      100% { opacity: .82; transform: scale(.92); }
+    }
+    .score-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 20px 0 10px;
+    }
+    .score-grid.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .score-box {
+      padding: 12px 10px;
+      border: 1px solid rgba(247, 244, 233, .13);
+      border-radius: 8px;
+      background: rgba(247, 244, 233, .06);
+      text-align: center;
+    }
+    .score-box.is-hidden { display: none; }
+    .score-box .k { display: block; color: rgba(247, 244, 233, .54); font-size: 12px; }
+    .score-box .v { display: block; margin-top: 5px; color: #f8d84a; font-size: 24px; font-weight: 900; }
+    .score-box .v.long { font-size: 19px; }
+    .score-box .range {
+      display: block;
+      margin-top: 4px;
+      color: rgba(247, 244, 233, .62);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .score-box .range:empty { display: none; }
+    .result-scale {
+      display: none;
+      margin: 0 0 12px;
+      color: rgba(247, 244, 233, .68);
+      font-size: 12px;
+      line-height: 1.65;
+      text-align: center;
+    }
+    .result-scale.show { display: block; }
+    .review-box {
+      display: none;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid rgba(248, 216, 74, .22);
+      background: rgba(16, 18, 19, .72);
+      color: rgba(247, 244, 233, .78);
+      line-height: 1.55;
+    }
+    .review-box.show { display: block; }
+    .review-title {
+      color: #f8d84a;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+    .review-item {
+      margin-top: 8px;
+      padding: 9px 10px;
+      border: 1px solid rgba(247, 244, 233, .12);
+      border-radius: 8px;
+      background: rgba(247, 244, 233, .055);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+    .review-item b { color: #4ee6a8; }
+    .review-item .review-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: rgba(247, 244, 233, .7);
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .review-item .review-meta em { font-style: normal; color: rgba(247, 244, 233, .62); }
+    .review-item .review-eq {
+      margin-top: 5px;
+      color: #fff7e8;
+      font-size: 14px;
+      font-weight: 900;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .68);
+    }
+    .review-item span {
+      display: block;
+      margin-top: 3px;
+      color: rgba(247, 244, 233, .62);
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      font-size: 12px;
+    }
+    .review-item.wrong { border-color: rgba(246, 91, 91, .24); }
+    .review-item.miss { border-color: rgba(248, 216, 74, .24); }
+    .review-item.good {
+      font-family: "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      color: rgba(247, 244, 233, .8);
+    }
+
+    @media (max-width: 860px) {
+      .hud {
+        top: 6px;
+        left: 6px;
+        right: 6px;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 6px;
+      }
+      .hud-left { grid-column: 1; grid-row: 1; }
+      .hud-right { grid-column: 2; grid-row: 1; }
+      .challenge { grid-column: 1 / -1; grid-row: 2; }
+      .hud-left, .hud-right { gap: 5px; flex-wrap: nowrap; }
+      .challenge { padding: 6px 8px; min-width: 0; }
+      .challenge .label, .challenge .hint { display: none; }
+      .challenge .value { margin-top: 0; font-size: 14px; overflow: visible; }
+      .stat { min-width: 44px; padding: 5px 5px; }
+      .stat-label { font-size: 10px; }
+      .stat-value { font-size: 14px; }
+      .history-stat { min-width: 70px; }
+      .history-stat .stat-value { font-size: 11px; }
+      .energy-stat { min-width: 64px; }
+      .exit-game-btn { min-width: 44px; padding: 6px 7px; font-size: 12px; }
+      .pause-game-btn { min-width: 44px; }
+      .song-grid, .option-grid, .knowledge, .score-grid { grid-template-columns: 1fr; }
+      .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .start-panel .song-grid, .start-panel .option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .start-panel .mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .start-panel .speed-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .setup-columns { grid-template-columns: 1fr; gap: 7px; }
+      .lane-controls { width: 100%; }
+      .lane-btn { height: 54px; gap: 6px; }
+      .lane-name { display: none; }
+      .title { font-size: 29px; }
+      .panel { padding: 20px; }
+      .select-card { min-height: 110px; }
+      .start-panel {
+        max-height: calc(100vh - 24px);
+        overflow: hidden;
+        padding: 0;
+      }
+      .start-panel .title { font-size: 31px; }
+      .start-panel .select-card { min-height: 42px; }
+      .start-panel .select-pill { min-height: 36px; padding: 6px 7px; }
+      .start-panel .pill-main, .start-panel .song-title { font-size: 13px; }
+      .start-panel.compact .title { font-size: 27px; letter-spacing: 2px; }
+      .guide-steps { grid-template-columns: 1fr; gap: 5px; }
+      .guide-step-card { min-height: 46px; padding: 7px; }
+      .guide-step-text { display: inline; margin: 0 0 0 7px; font-size: 12px; }
+      .rules-box { padding: 7px 10px; font-size: 11px; }
+      .judge-pop { bottom: 78px; min-width: 150px; padding: 7px 12px; }
+      .judge-title { font-size: 21px; }
+      .judge-sub { display: none; }
+    }
+
+    @media (max-height: 700px) {
+      .start-panel { gap: 6px; }
+      .start-panel .subtitle { display: none; }
+      .start-panel .title { font-size: clamp(30px, 5vw, 48px); }
+      .start-panel .section-label { margin-top: 2px; }
+      .start-panel .select-card { min-height: 40px; padding: 7px 9px; }
+      .start-panel .select-pill { min-height: 34px; padding: 5px 7px; }
+      .rules-box { margin-top: 2px; padding: 6px 12px; line-height: 1.35; }
+      .start-panel .actions { margin-top: 2px; }
+      .start-panel.compact .title { font-size: 30px; }
+      .start-panel.compact { gap: 5px; }
+      .guide-step-card { min-height: 52px; }
+    }
+    @media (max-height: 620px) {
+      .start-panel.compact {
+        height: calc(100vh - 12px);
+        transform: scale(.9);
+        transform-origin: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <audio id="menuCanonAudio" src="audio/canon.flac" preload="auto" autoplay loop playsinline></audio>
+  <div id="app" class="menuing">
+    <canvas id="game" aria-label="MOD RUSH 取模节奏门游戏画面"></canvas>
+
+    <div class="hud" aria-live="polite">
+      <div class="hud-left">
+        <div class="stat"><span class="stat-label">分数</span><span class="stat-value" id="score">0</span></div>
+        <div class="stat"><span class="stat-label">连击</span><span class="stat-value" id="combo">0</span></div>
+        <div class="stat"><span class="stat-label">进度</span><span class="stat-value" id="progress">0/0</span></div>
+      </div>
+      <div class="challenge">
+        <div class="label" id="songNow">MOD RUSH</div>
+        <div class="value" id="promptText">
+          <div class="question-line current"><span class="question-tag">当前</span><span class="question-expression" id="currentQuestion">选择歌曲开始</span></div>
+          <div class="question-line next"><span class="question-tag">下一题</span><span class="question-expression" id="nextQuestion">--</span></div>
+        </div>
+        <div class="hint" id="promptHint">选出合法且为真的表达式</div>
+      </div>
+      <div class="hud-right">
+        <div class="stat energy-stat">
+          <span class="stat-label">血量</span>
+          <span class="stat-value" id="energy">4</span>
+          <span class="energy-bar" id="energyBar" aria-hidden="true">
+            <span class="energy-cell on"></span>
+            <span class="energy-cell on"></span>
+            <span class="energy-cell on"></span>
+            <span class="energy-cell on"></span>
+          </span>
+        </div>
+        <div class="stat"><span class="stat-label">判定</span><span class="stat-value" id="lastJudge">--</span></div>
+        <div class="stat history-stat"><span class="stat-label">个人最佳</span><span class="stat-value" id="best">暂无</span></div>
+        <button class="exit-game-btn pause-game-btn" id="pauseGameBtn" type="button">暂停</button>
+        <button class="exit-game-btn" id="exitGameBtn" type="button">退出</button>
+      </div>
+    </div>
+
+    <div class="judge-pop" id="judgePop">
+      <div class="judge-title" id="judgeTitle">PERFECT</div>
+      <div class="judge-sub" id="judgeSub"></div>
+    </div>
+
+    <div class="lane-controls">
+      <button class="lane-btn" data-lane="0" type="button"><span class="lane-key">A</span><span class="lane-name">左轨</span></button>
+      <button class="lane-btn" data-lane="1" type="button"><span class="lane-key">S</span><span class="lane-name">中轨</span></button>
+      <button class="lane-btn" data-lane="2" type="button"><span class="lane-key">D</span><span class="lane-name">右轨</span></button>
+    </div>
+
+    <div class="screen active" id="startScreen">
+      <div class="panel start-panel">
+        <h1 class="title"><span>MOD RUSH</span> · 取模节奏门</h1>
+        <p class="subtitle">跟着节奏算余数 · 用 A / S / D 把答案变成钢琴旋律</p>
+
+        <div class="menu-step active" id="modeStep">
+          <div class="section-label">选择模式</div>
+          <div class="option-grid mode-grid" id="modeGrid"></div>
+          <button class="ghost guide-entry" id="guideBtn" type="button">新手指引 · 先练一次</button>
+          <div class="rules-box">
+            选一个喜欢的模式，开始今天的节奏挑战！
+          </div>
+        </div>
+
+        <div class="menu-step" id="guideStep">
+          <div class="setup-head">
+            <button class="ghost" id="backFromGuideBtn" type="button">返回模式</button>
+            <span class="mode-badge">新手指引</span>
+          </div>
+          <div class="guide-steps">
+            <div class="guide-step-card"><span class="guide-step-number">1</span><span class="guide-step-text">先看上方算式</span></div>
+            <div class="guide-step-card"><span class="guide-step-number">2</span><span class="guide-step-text">等音符靠近判定线</span></div>
+            <div class="guide-step-card"><span class="guide-step-number">3</span><span class="guide-step-text">按正确答案的 A / S / D</span></div>
+          </div>
+          <div class="guide-practice">
+            <div class="guide-question">8 % 3 = ?</div>
+            <div class="guide-hint" id="guideHint">余数是多少？试着按键或点击答案。</div>
+            <div class="guide-options">
+              <button class="guide-option" data-guide-lane="0" type="button"><b>A</b>0</button>
+              <button class="guide-option" data-guide-lane="1" type="button"><b>S</b>2</button>
+              <button class="guide-option" data-guide-lane="2" type="button"><b>D</b>3</button>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" id="guideDoneBtn" type="button">开始写歌</button>
+          </div>
+        </div>
+
+        <div class="menu-step" id="setupStep">
+          <div class="setup-head">
+            <button class="ghost" id="backToModeBtn" type="button">返回模式</button>
+            <span class="mode-badge" id="setupModeLabel">写歌模式</span>
+          </div>
+
+          <div class="setup-block">
+            <div class="setup-label">选择歌曲</div>
+            <div class="song-grid" id="songGrid"></div>
+
+            <div class="setup-columns">
+              <div class="setup-block">
+                <div class="setup-label">选择难度</div>
+                <div class="option-grid" id="difficultyGrid"></div>
+              </div>
+              <div class="setup-block">
+                <div class="setup-label">歌曲倍速</div>
+                <div class="option-grid speed-grid" id="speedGrid"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="startBtn" type="button">开始演奏</button>
+            <button class="ghost" id="muteBtn" type="button">音效开启</button>
+          </div>
+
+          <div class="rules-box">
+            基础 <span class="hl">20以内 · 4颗爱心</span>　中等 <span class="hl">50以内 · 3颗爱心</span>　高难 <span class="hl">30以内 · 2颗爱心</span><br>
+            看准答案按 A / S / D；听歌模式会自动演奏。
+          </div>
+
+          <div class="menu-footer" id="setupSummary">选好歌曲和难度，就可以开始演奏啦！</div>
+        </div>
+
+        <div class="menu-step" id="challengeStep">
+          <div class="setup-head">
+            <button class="ghost" id="backFromChallengeBtn" type="button">返回模式</button>
+            <span class="mode-badge">挑战模式 · 六星闯关</span>
+          </div>
+
+          <div class="setup-block">
+            <div class="setup-label">选择挑战歌曲</div>
+            <div class="song-grid" id="challengeSongGrid"></div>
+          </div>
+
+          <div class="rules-box">
+            闯关路线：<span class="hl">0.5→1.0x基础</span> → 1.0→1.2x基础 → 1.2→1.6x中等 → 1.6→2.0x中等 → 2.0→2.3x困难 → <span class="hl">2.3→2.6x困难</span>。
+            按 A / S / D 或点击轨道，每闯过一段点亮1颗星；六颗星全亮后进入“无尽冲刺”，歌曲完整循环，最高加速到12x！
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="countdown-screen" id="countdownScreen">
+      <div class="countdown-rules" id="countdownRules">
+        <div class="rule-title" id="ruleTitle">判定说明</div>
+        <div class="rule-line" id="ruleLine">音符到线附近按 A / S / D。</div>
+      </div>
+      <div class="countdown-title" id="countdownTitle">3</div>
+      <div class="countdown-sub" id="countdownSub">READY</div>
+    </div>
+
+    <div class="pause-screen" id="pauseScreen" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <div class="pause-panel">
+        <div class="pause-title" id="pauseTitle">游戏暂停</div>
+        <div class="pause-copy">音符和音乐都停在原位置，准备好再继续。</div>
+        <div class="pause-actions">
+          <button class="primary pause-action" id="resumeGameBtn" type="button">继续游戏</button>
+          <button class="ghost pause-action pause-exit" id="pauseExitBtn" type="button">退出游戏</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen" id="endScreen">
+      <div class="panel">
+        <h2 class="title" id="endTitle"><span>RESULT</span> · 演奏完成</h2>
+        <div class="score-grid" id="scoreGrid">
+          <div class="score-box"><span class="k">最终分数</span><span class="v" id="endScore">0</span></div>
+          <div class="score-box" id="gradeScoreBox"><span class="k">评级</span><span class="v" id="endGrade">C</span><span class="range" id="endGradeRange"></span></div>
+          <div class="score-box" id="beatScoreBox"><span class="k">战胜玩家</span><span class="v long" id="endBeat">超过0%的人</span><span class="range" id="endBeatRange"></span></div>
+          <div class="score-box"><span class="k">最高连击</span><span class="v" id="endCombo">0</span></div>
+          <div class="score-box"><span class="k">P/G/M/W</span><span class="v" id="endJudges">0/0/0/0</span></div>
+          <div class="score-box"><span class="k">正确率</span><span class="v" id="endAccuracy">0%</span></div>
+        </div>
+        <div class="result-scale" id="resultScale"></div>
+        <p class="subtitle" id="endComment">这首歌的取模节奏已经完成。</p>
+        <div class="review-box" id="reviewBox">
+          <div class="review-title" id="reviewTitle">这几题再看一眼</div>
+          <div id="reviewList"></div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="replayBtn" type="button">再演奏一次</button>
+          <button class="ghost" id="backBtn" type="button">返回主界面</button>
+          <button class="ghost" id="endMuteBtn" type="button">音效开启</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    "use strict";
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
+    const laneButtons = Array.from(document.querySelectorAll(".lane-btn"));
+    const guideOptions = Array.from(document.querySelectorAll(".guide-option"));
+    const ui = {
+      menuCanonAudio: document.getElementById("menuCanonAudio"),
+      app: document.getElementById("app"),
+      score: document.getElementById("score"),
+      combo: document.getElementById("combo"),
+      progress: document.getElementById("progress"),
+      energy: document.getElementById("energy"),
+      energyBar: document.getElementById("energyBar"),
+      best: document.getElementById("best"),
+      lastJudge: document.getElementById("lastJudge"),
+      songNow: document.getElementById("songNow"),
+      promptText: document.getElementById("promptText"),
+      currentQuestion: document.getElementById("currentQuestion"),
+      nextQuestion: document.getElementById("nextQuestion"),
+      promptHint: document.getElementById("promptHint"),
+      judgePop: document.getElementById("judgePop"),
+      judgeTitle: document.getElementById("judgeTitle"),
+      judgeSub: document.getElementById("judgeSub"),
+      startScreen: document.getElementById("startScreen"),
+      endScreen: document.getElementById("endScreen"),
+      countdownScreen: document.getElementById("countdownScreen"),
+      countdownTitle: document.getElementById("countdownTitle"),
+      countdownSub: document.getElementById("countdownSub"),
+      countdownRules: document.getElementById("countdownRules"),
+      pauseScreen: document.getElementById("pauseScreen"),
+      ruleTitle: document.getElementById("ruleTitle"),
+      ruleLine: document.getElementById("ruleLine"),
+      modeStep: document.getElementById("modeStep"),
+      setupStep: document.getElementById("setupStep"),
+      challengeStep: document.getElementById("challengeStep"),
+      guideStep: document.getElementById("guideStep"),
+      startPanel: document.querySelector(".start-panel"),
+      setupModeLabel: document.getElementById("setupModeLabel"),
+      setupSummary: document.getElementById("setupSummary"),
+      startBtn: document.getElementById("startBtn"),
+      replayBtn: document.getElementById("replayBtn"),
+      backBtn: document.getElementById("backBtn"),
+      backToModeBtn: document.getElementById("backToModeBtn"),
+      backFromChallengeBtn: document.getElementById("backFromChallengeBtn"),
+      guideBtn: document.getElementById("guideBtn"),
+      backFromGuideBtn: document.getElementById("backFromGuideBtn"),
+      guideDoneBtn: document.getElementById("guideDoneBtn"),
+      guideHint: document.getElementById("guideHint"),
+      exitGameBtn: document.getElementById("exitGameBtn"),
+      pauseGameBtn: document.getElementById("pauseGameBtn"),
+      resumeGameBtn: document.getElementById("resumeGameBtn"),
+      pauseExitBtn: document.getElementById("pauseExitBtn"),
+      muteBtn: document.getElementById("muteBtn"),
+      endMuteBtn: document.getElementById("endMuteBtn"),
+      modeGrid: document.getElementById("modeGrid"),
+      songGrid: document.getElementById("songGrid"),
+      challengeSongGrid: document.getElementById("challengeSongGrid"),
+      difficultyGrid: document.getElementById("difficultyGrid"),
+      speedGrid: document.getElementById("speedGrid"),
+      endTitle: document.getElementById("endTitle"),
+      scoreGrid: document.getElementById("scoreGrid"),
+      endScore: document.getElementById("endScore"),
+      gradeScoreBox: document.getElementById("gradeScoreBox"),
+      endGrade: document.getElementById("endGrade"),
+      endGradeRange: document.getElementById("endGradeRange"),
+      beatScoreBox: document.getElementById("beatScoreBox"),
+      endBeat: document.getElementById("endBeat"),
+      endBeatRange: document.getElementById("endBeatRange"),
+      resultScale: document.getElementById("resultScale"),
+      endCombo: document.getElementById("endCombo"),
+      endJudges: document.getElementById("endJudges"),
+      endAccuracy: document.getElementById("endAccuracy"),
+      endComment: document.getElementById("endComment"),
+      reviewBox: document.getElementById("reviewBox"),
+      reviewTitle: document.getElementById("reviewTitle"),
+      reviewList: document.getElementById("reviewList"),
+    };
+
+    const MODES = [
+      { id: "write", title: "写歌模式", sub: "看准答案，按 A / S / D，让每道题变成一个音符！", accent: "#ffb1db" },
+      { id: "listen", title: "听歌模式", sub: "自动演奏正确答案，边听旋律边学取模。", accent: "#7bdff2" },
+      { id: "challenge", title: "挑战模式", sub: "闯过六个阶段，点亮星星，看看你能加速到多快！", accent: "#f8d84a" },
+    ];
+
+    const NOTE_FREQ = {
+      "C3": 130.81, "C#3": 138.59, "D3": 146.83, "D#3": 155.56, "E3": 164.81, "F3": 174.61, "F#3": 185.00, "G3": 196.00, "G#3": 207.65, "A3": 220.00, "A#3": 233.08, "B3": 246.94,
+      "C4": 261.63, "C#4": 277.18, "D4": 293.66, "D#4": 311.13, "E4": 329.63, "F4": 349.23, "F#4": 369.99, "G4": 392.00, "G#4": 415.30, "A4": 440.00, "A#4": 466.16, "B4": 493.88,
+      "C5": 523.25, "C#5": 554.37, "D5": 587.33, "D#5": 622.25, "E5": 659.25, "F5": 698.46, "F#5": 739.99, "G5": 783.99, "G#5": 830.61, "A5": 880.00, "A#5": 932.33, "B5": 987.77,
+      "C6": 1046.50, "D6": 1174.66, "E6": 1318.51, "F6": 1396.91, "G6": 1567.98,
+    };
+
+    function melody(spec, chords) {
+      const chordList = Array.isArray(chords) ? chords : [chords];
+      return spec.trim().split(/\s+/).map((token, index) => {
+        const [note, beatsText] = token.split(":");
+        return {
+          note,
+          chord: chordList[index % chordList.length],
+          beats: beatsText ? Number(beatsText) : 1,
+        };
+      });
+    }
+
+    const MUSIC_PATTERNS = {
+      menuCanon: melody(`
+        D5 A4 B4 F#4 G4 D4 G4 A4:1.5
+        F#5:.5 E5:.5 D5 C#5 B4 A4 G4 A4:1.5
+        D5:.5 F#5:.5 A5 F#5 D5 A4 B4 D5
+        G5:.5 F#5:.5 E5 D5 C#5 B4 A4 G4 A4:2
+        F#4 A4 D5 A4 B4 D5 F#5 D5
+        G4 B4 D5 B4 A4 C#5 E5 C#5 D5:2
+      `, ["D4", "A3", "B3", "F#3", "G3", "D3", "G3", "A3"]),
+      ode: melody(`
+        E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 E4:1.5 D4:.5 D4:2
+        E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 D4:1.5 C4:.5 C4:2
+        D4 D4 E4 C4 D4 E4 F4 E4 C4 D4 E4 F4 E4 D4 C4 D4 G3:2
+        E4 E4 F4 G4 G4 F4 E4 D4 C4 C4 D4 E4 D4:1.5 C4:.5 C4:3
+      `, ["C4", "G3", "F3", "G3", "C4", "F3", "C4", "G3"]),
+      mozartNight: melody(`
+        G5:.5 D5:.5 G5:.5 D5:.5 G5:.5 D5:.5 B5 A5:.5 G5:.5 F#5:.5 E5:.5 D5
+        C5:.5 B4:.5 A4:.5 G4 G4:.5 B4:.5 D5:.5 G5 B5:.5 A5:.5 G5:.5 F#5:.5 E5:.5 D5:.5
+        C5:.5 E5:.5 A5:.5 C6 A5:.5 G5:.5 F#5:.5 E5 D5:.5 F#5:.5 A5:.5 D6
+        C6:.5 B5:.5 A5:.5 G5 F#5:.5 E5:.5 D5:.5 C5 B4:.5 A4:.5 G4:2
+      `, ["G3", "D4", "G3", "D4", "G3", "D4", "G3", "D4", "C4", "G3", "D4", "G3"]),
+      swanLake: melody(`
+        B4:1.5 C#5:.5 D5 E5 F#5:1.5 E5:.5 D5 C#5 B4:2
+        A4 B4 C#5 D5:1.5 C#5:.5 B4:2
+        F#5:1.5 E5:.5 D5 C#5 B4 A4 B4 C#5 D5:2
+        E5 F#5 G5 F#5:1.5 E5:.5 D5:2
+        B4:1.5 C#5:.5 D5 E5 F#5:1.5 E5:.5 D5 C#5 B4:2
+        A4 B4 C#5 D5 C#5 B4:3
+      `, ["B3", "F#3", "G3", "E3", "D3", "A3", "B3", "F#3"]),
+    };
+
+    const AUDIO_SOURCES = {
+      menuCanon: "audio/canon.flac",
+      ode: "",
+      mozart: "",
+      swan: "",
+    };
+
+    const SONGS = [
+      {
+        id: "ode",
+        title: "欢乐颂",
+        sub: "贝多芬主题，节奏稳定，适合作为第一首练习曲。",
+        tags: ["Beethoven", "中速", "稳拍"],
+        accent: "#ffb1db",
+        dark: "#24131d",
+        pattern: "ode",
+        beatMs: 560,
+        sustain: 1.16,
+        phraseNotes: { easy: 15, normal: 30, hard: 47 },
+        notePlan: {
+          easy: { short: 12, hold: 3 },
+          normal: { short: 24, hold: 6 },
+          hard: { short: 37, hold: 10 },
+        },
+      },
+      {
+        id: "mozart",
+        title: "莫扎特小夜曲",
+        sub: "明亮短句，音符更密，适合高一点的节奏感。",
+        tags: ["Mozart", "快节奏", "跳音"],
+        accent: "#4ee6a8",
+        dark: "#102419",
+        pattern: "mozartNight",
+        beatMs: 380,
+        sustain: .92,
+        phraseNotes: { easy: 12, normal: 26, hard: 38 },
+        notePlan: {
+          easy: { short: 10, hold: 2 },
+          normal: { short: 21, hold: 5 },
+          hard: { short: 31, hold: 7 },
+        },
+      },
+      {
+        id: "swan",
+        title: "天鹅湖主题",
+        sub: "旋律舒展，慢一点，适合读题和长音连贯感。",
+        tags: ["Tchaikovsky", "慢速", "长音"],
+        accent: "#7bdff2",
+        dark: "#101d25",
+        pattern: "swanLake",
+        beatMs: 680,
+        sustain: 1.38,
+        phraseNotes: { easy: 15, normal: 30, hard: 45 },
+        notePlan: {
+          easy: { short: 11, hold: 4 },
+          normal: { short: 22, hold: 8 },
+          hard: { short: 33, hold: 12 },
+        },
+      },
+    ];
+
+    const DIFFICULTIES = {
+      easy: {
+        title: "基础",
+        sub: "20 以内，4 血量，练整数取模。",
+        notes: 12,
+        travelMs: 7200,
+        gapMs: 760,
+        energy: 4,
+      },
+      normal: {
+        title: "中等",
+        sub: "50 以内，3 血量，题型同基础版，数字更大。",
+        notes: 16,
+        travelMs: 6800,
+        gapMs: 680,
+        energy: 3,
+      },
+      hard: {
+        title: "高难",
+        sub: "30 以内，2 血量，练类型转换或括号四则后取模。",
+        notes: 20,
+        travelMs: 6400,
+        gapMs: 610,
+        energy: 2,
+      },
+    };
+
+    const SPEEDS = [
+      { label: "0.5x", value: 0.5, sub: "慢速读题" },
+      { label: "1.0x", value: 1, sub: "舒适速度" },
+      { label: "2.0x", value: 2, sub: "提速挑战" },
+    ];
+
+    const GAME_TEMPO_SCALE = 1.85;
+    const NOTE_TRAVEL_SPEEDUP = .88;
+    const GAME_SPEED_MULTIPLIER = 1.10;
+    const VISUAL_NOTE_SPACING = { base: .82, min: .58, max: .96 };
+    const QUESTION_INTERVAL_MS = { base: 6200, min: 4300, max: 10800 };
+    const HOLD_SAFETY_MS = 1280;
+    const HOLD_TUNING = {
+      easy: { base: 720, add: .13, min: 480, max: 1120 },
+      normal: { base: 820, add: .15, min: 540, max: 1220 },
+      hard: { base: 900, add: .17, min: 580, max: 1320 },
+    };
+    const REVIEW_LIMIT = 4;
+    const JUDGE_WINDOWS = {
+      easy: { perfect: 230, great: 480 },
+      normal: { perfect: 200, great: 420 },
+      hard: { perfect: 170, great: 360 },
+    };
+    const SCORE_VALUES = { PERFECT: 1000, GREAT: 650 };
+    const COMBO_BONUS = 20;
+    const WRITE_GRADE_BANDS = [
+      { grade: "C", minRatio: 0, nextRatio: .5 },
+      { grade: "B", minRatio: .5, nextRatio: .65 },
+      { grade: "A", minRatio: .65, nextRatio: .8 },
+      { grade: "S", minRatio: .8, nextRatio: .9 },
+      { grade: "SS", minRatio: .9, nextRatio: .97 },
+      { grade: "SSS", minRatio: .97, nextRatio: null },
+    ];
+    const CHALLENGE = {
+      difficulty: "easy",
+      energy: 3,
+      autoPlay: false,
+      intervalScale: 1,
+      endlessSpeedStep: .3,
+      maxSpeed: 12,
+      starLoops: 6,
+      stages: [
+        { speed: .5, speedStart: .5, speedEnd: 1, difficulty: "easy", label: "0.5→1.0x 基础题", target: 15 },
+        { speed: 1, speedStart: 1, speedEnd: 1.2, difficulty: "easy", label: "1.0→1.2x 基础题", target: 15 },
+        { speed: 1.2, speedStart: 1.2, speedEnd: 1.6, difficulty: "normal", label: "1.2→1.6x 中等题", target: 15 },
+        { speed: 1.6, speedStart: 1.6, speedEnd: 2, difficulty: "normal", label: "1.6→2.0x 中等题", target: 15 },
+        { speed: 2, speedStart: 2, speedEnd: 2.3, difficulty: "hard", label: "2.0→2.3x 困难题", target: 20 },
+        { speed: 2.3, speedStart: 2.3, speedEnd: 2.6, difficulty: "hard", label: "2.3→2.6x 困难题", target: 20 },
+      ],
+      starStageEnds: [0, 1, 2, 3, 4, 5],
+    };
+
+    const NUMBER_LIMITS = {
+      easy: 20,
+      normal: 50,
+      hard: 30,
+    };
+
+    const state = {
+      screen: "start",
+      running: false,
+      paused: false,
+      menuStep: "mode",
+      selectedMode: "write",
+      selectedSong: 0,
+      selectedDifficulty: "easy",
+      selectedSpeed: 1,
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      energy: 4,
+      noteIndex: 0,
+      totalNotes: 0,
+      correctHits: 0,
+      perfectHits: 0,
+      greatHits: 0,
+      missHits: 0,
+      wrongHits: 0,
+      mistakes: [],
+      songCursor: 0,
+      active: null,
+      activeNotes: [],
+      chart: [],
+      musicEvents: [],
+      spawnCursor: 0,
+      gameTime: 0,
+      trackEndTime: 0,
+      nextTimer: 0,
+      roadOffset: 0,
+      lastTs: 0,
+      judgeTimer: 0,
+      laneFlash: [-1, -1, -1],
+      laneHeld: [false, false, false],
+      particles: [],
+      stars: [],
+      shake: 0,
+      muted: false,
+      challengeStars: 0,
+      challengeLoop: 0,
+      challengeSegmentNotes: 0,
+      challengeSegmentHit: 0,
+      challengeNextStartTime: 0,
+      challengePatternIndex: 0,
+      challengeMaxSpeed: 0.5,
+      challengeStageIndex: 0,
+      challengeStageLabel: "0.5x 基础题",
+    };
+
+    const view = {
+      w: 0,
+      h: 0,
+      dpr: 1,
+      lanes: [0, 0, 0],
+      laneW: 0,
+      spawnY: 0,
+      hitY: 0,
+      noteW: 0,
+    };
+    const vignetteLayer = document.createElement("canvas");
+    const vignetteCtx = vignetteLayer.getContext("2d");
+    const backdropLayer = document.createElement("canvas");
+    const backdropCtx = backdropLayer.getContext("2d", { alpha: false });
+    const MAX_PARTICLES = 96;
+    const NOTE_FRAME_TONES = {
+      "#f8d84a": "#fff4a3",
+      "#7bdff2": "#9cecff",
+      "#ffb1db": "#ffd2ec",
+      "#4ee6a8": "#8df0c3",
+      "#f65b5b": "#ff9a9a",
+    };
+    const PIANO_PARTIALS = [
+      { ratio: 1, type: "triangle", level: 1, detune: 0 },
+      { ratio: 2.01, type: "sine", level: .36, detune: 3 },
+      { ratio: 3.01, type: "sine", level: .16, detune: -4 },
+      { ratio: .5, type: "sine", level: .12, detune: 0 },
+    ];
+    let backdropLastRender = -Infinity;
+    let backdropSongIndex = -1;
+    let lastPromptSignature = "";
+    let challengeHudElapsed = Infinity;
+    let spriteWarmupRun = 0;
+    const noteBodyCache = new Map();
+    const noteTextCache = new Map();
+    let receptorSprite = null;
+    let laneStageGradient = null;
+    const laneFillGradients = [[], []];
+
+    function safeStorageGet(key, fallback = null) {
+      try {
+        const storage = window.localStorage;
+        const value = storage.getItem(key);
+        return value === null ? fallback : value;
+      } catch (err) {
+        return fallback;
+      }
+    }
+
+    function safeStorageSet(key, value) {
+      try {
+        window.localStorage.setItem(key, value);
+        return true;
+      } catch (err) {
+        return false;
+      }
+    }
+
+    let bestScore = parseInt(safeStorageGet("mod_rush_beat_best", "0") || "0", 10);
+    let writeRecords = {};
+    try { writeRecords = JSON.parse(safeStorageGet("mod_rush_write_records", "{}") || "{}") || {}; }
+    catch (err) { writeRecords = {}; }
+    let challengeRecords = {};
+    try { challengeRecords = JSON.parse(safeStorageGet("mod_rush_challenge_stars", "{}") || "{}") || {}; }
+    catch (err) { challengeRecords = {}; }
+    let challengeSpeedRecords = {};
+    try { challengeSpeedRecords = JSON.parse(safeStorageGet("mod_rush_challenge_speed", "{}") || "{}") || {}; }
+    catch (err) { challengeSpeedRecords = {}; }
+    const WRITE_SONG_HISTORY_KEY = "mod_rush_write_song_history_v1";
+    const CHALLENGE_HISTORY_KEY = "mod_rush_challenge_history_v1";
+    let writeSongHistory = {};
+    try { writeSongHistory = JSON.parse(safeStorageGet(WRITE_SONG_HISTORY_KEY, "{}") || "{}") || {}; }
+    catch (err) { writeSongHistory = {}; }
+    let challengeHistory = {};
+    try { challengeHistory = JSON.parse(safeStorageGet(CHALLENGE_HISTORY_KEY, "{}") || "{}") || {}; }
+    catch (err) { challengeHistory = {}; }
+    let challengeHistorySaveTimer = null;
+    let challengeHistoryDirty = false;
+    let countdownRun = 0;
+    let menuMusicTimer = null;
+    let menuMusicCursor = 0;
+    let menuPreviewEvents = [];
+    let menuPreviewLastPlayTime = 0;
+    let menuMusicUnlocked = false;
+    let menuMusicTrack = "menuCanon";
+    let menuAudio = ui.menuCanonAudio;
+    let menuAudioKey = menuAudio ? `menuCanon:${AUDIO_SOURCES.menuCanon}` : "";
+    let menuAudioActive = false;
+    let gameAudio = null;
+    let gameAudioKey = "";
+    let gameAudioActive = false;
+    const failedAudioSources = new Set();
+
+    let audioCtx = null;
+    function getAudio() {
+      if (state.muted) return null;
+      if (!audioCtx) {
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+        catch (err) { audioCtx = null; }
+      }
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+    function pianoTone(freq, duration, gain, delay, partialLimit = 4) {
+      const ac = getAudio();
+      if (!ac) return;
+      const t = ac.currentTime + (delay || 0);
+      const master = ac.createGain();
+      master.gain.setValueAtTime(0.0001, t);
+      master.gain.exponentialRampToValueAtTime(gain || 0.1, t + 0.008);
+      master.gain.exponentialRampToValueAtTime((gain || 0.1) * 0.42, t + 0.08);
+      master.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+      master.connect(ac.destination);
+
+      const count = clamp(Math.round(partialLimit), 1, PIANO_PARTIALS.length);
+      for (let index = 0; index < count; index++) {
+        const part = PIANO_PARTIALS[index];
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+        osc.type = part.type;
+        osc.frequency.setValueAtTime(freq * part.ratio, t);
+        osc.detune.setValueAtTime(part.detune, t);
+        g.gain.setValueAtTime(part.level, t);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(t);
+        osc.stop(t + duration + 0.05);
+      }
+    }
+
+    function noteFrequency(name) {
+      return NOTE_FREQ[name] || 440;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function effectiveGameSpeed(speed = state.selectedSpeed) {
+      return Math.max(.1, Number(speed || 1) * GAME_SPEED_MULTIPLIER);
+    }
+
+    function getSongStep(song, index) {
+      const pattern = MUSIC_PATTERNS[song.pattern] || MUSIC_PATTERNS.ode;
+      return pattern[index % pattern.length];
+    }
+
+    function songForTrack(track) {
+      return SONGS.find(song => song.pattern === track);
+    }
+
+    function currentMenuTrack() {
+      return state.menuStep === "setup" ? SONGS[state.selectedSong].pattern : "menuCanon";
+    }
+
+    function isChallengeMode() {
+      return state.selectedMode === "challenge";
+    }
+
+    function isAutoPlayMode() {
+      return state.selectedMode === "listen" || (isChallengeMode() && CHALLENGE.autoPlay);
+    }
+
+    function starString(count) {
+      const total = CHALLENGE.starLoops || 6;
+      const stars = clamp(count || 0, 0, total);
+      return Array.from({ length: total }, (_, idx) => idx < stars ? "★" : "☆").join("");
+    }
+
+    function starHTML(count) {
+      const total = CHALLENGE.starLoops || 6;
+      const stars = clamp(count || 0, 0, total);
+      return Array.from({ length: total }, (_, idx) => idx < stars ? "★" : `<span class="off">★</span>`).join("");
+    }
+
+    function challengeBestStars(songId) {
+      return clamp(challengeRecords[songId] || 0, 0, CHALLENGE.starLoops || 6);
+    }
+
+    function challengeDifficultyForSpeed(speed) {
+      if (speed >= 2) return "hard";
+      if (speed >= 1.2) return "normal";
+      return "easy";
+    }
+
+    function challengeBestHistory(songId) {
+      const stored = challengeHistory[songId] || {};
+      const storedSpeed = Math.max(0, Number(stored.speed || 0));
+      const legacySpeed = Math.max(0, Number(challengeSpeedRecords[songId] || 0));
+      if (storedSpeed >= legacySpeed && storedSpeed > 0) {
+        const difficulty = DIFFICULTIES[stored.difficulty] ? stored.difficulty : challengeDifficultyForSpeed(storedSpeed);
+        return { speed: storedSpeed, difficulty };
+      }
+      return {
+        speed: legacySpeed,
+        difficulty: challengeDifficultyForSpeed(legacySpeed),
+      };
+    }
+
+    function challengeBestSpeed(songId) {
+      return challengeBestHistory(songId).speed;
+    }
+
+    function challengeBestLabel(songId) {
+      const record = challengeBestHistory(songId);
+      if (!record.speed) return "暂无";
+      return `${record.speed.toFixed(2)}x·${DIFFICULTIES[record.difficulty].title}`;
+    }
+
+    function challengeHistoryText(songId) {
+      const record = challengeBestHistory(songId);
+      if (!record.speed) return "暂无挑战记录";
+      return `最快 ${record.speed.toFixed(2)}x · ${DIFFICULTIES[record.difficulty].title}`;
+    }
+
+    function saveChallengeStars(songId, stars) {
+      const next = clamp(stars || 0, 0, CHALLENGE.starLoops || 6);
+      if (next <= challengeBestStars(songId)) return;
+      challengeRecords[songId] = next;
+      safeStorageSet("mod_rush_challenge_stars", JSON.stringify(challengeRecords));
+    }
+
+    function saveChallengeSpeed(songId, speed, difficulty = state.selectedDifficulty) {
+      const next = Math.max(0, Number(speed || 0));
+      const rounded = Math.round(next * 100) / 100;
+      const validDifficulty = DIFFICULTIES[difficulty] ? difficulty : challengeDifficultyForSpeed(rounded);
+      const current = challengeBestHistory(songId);
+      const difficultyOrder = { easy: 0, normal: 1, hard: 2 };
+      const isBetter = rounded > current.speed
+        || (rounded === current.speed && difficultyOrder[validDifficulty] > difficultyOrder[current.difficulty]);
+      if (!isBetter) return;
+      challengeSpeedRecords[songId] = rounded;
+      challengeHistory[songId] = { speed: rounded, difficulty: validDifficulty };
+      challengeHistoryDirty = true;
+      if (challengeHistorySaveTimer === null) {
+        challengeHistorySaveTimer = setTimeout(flushChallengeHistory, 180);
+      }
+    }
+
+    function flushChallengeHistory() {
+      if (challengeHistorySaveTimer !== null) {
+        clearTimeout(challengeHistorySaveTimer);
+        challengeHistorySaveTimer = null;
+      }
+      if (!challengeHistoryDirty) return;
+      safeStorageSet("mod_rush_challenge_speed", JSON.stringify(challengeSpeedRecords));
+      safeStorageSet(CHALLENGE_HISTORY_KEY, JSON.stringify(challengeHistory));
+      challengeHistoryDirty = false;
+    }
+
+    function writeRecordKey(songId = SONGS[state.selectedSong] && SONGS[state.selectedSong].id, difficulty = state.selectedDifficulty, speed = state.selectedSpeed) {
+      return `${songId}:${difficulty}:${Number(speed).toFixed(1)}`;
+    }
+
+    function writeBestScore(songId = SONGS[state.selectedSong] && SONGS[state.selectedSong].id, difficulty = state.selectedDifficulty, speed = state.selectedSpeed) {
+      return Math.max(0, Number(writeRecords[writeRecordKey(songId, difficulty, speed)] || 0));
+    }
+
+    function gradeForRatio(ratio) {
+      let grade = WRITE_GRADE_BANDS[0].grade;
+      for (const band of WRITE_GRADE_BANDS) {
+        if (ratio >= band.minRatio) grade = band.grade;
+      }
+      return grade;
+    }
+
+    function legacyWriteSongRecord(songId) {
+      const song = SONGS.find(item => item.id === songId);
+      if (!song) return null;
+      let best = null;
+      Object.entries(writeRecords).forEach(([key, scoreValue]) => {
+        const [recordSongId, difficulty, speedText] = key.split(":");
+        if (recordSongId !== songId || !DIFFICULTIES[difficulty]) return;
+        const speed = Math.max(.5, Number(speedText || 1));
+        const total = Math.max(DIFFICULTIES[difficulty].notes, song.phraseNotes && song.phraseNotes[difficulty] || 0);
+        let maxScore = 0;
+        for (let i = 0; i < total; i++) maxScore += (SCORE_VALUES.PERFECT + i * COMBO_BONUS) * speed;
+        const score = Math.max(0, Number(scoreValue || 0));
+        const ratio = clamp(score / Math.max(1, maxScore), 0, 1);
+        if (!best || ratio > best.ratio) {
+          best = { score, maxScore, ratio, beatPercent: ratio >= 1 ? 100 : Math.floor(ratio * 100 + 1e-9), grade: gradeForRatio(ratio), difficulty, speed };
+        }
+      });
+      return best;
+    }
+
+    function writeBestHistory(songId) {
+      const stored = writeSongHistory[songId];
+      if (stored && Number(stored.maxScore) > 0) {
+        const score = Math.max(0, Number(stored.score || 0));
+        const maxScore = Math.max(1, Number(stored.maxScore));
+        const ratio = clamp(score / maxScore, 0, 1);
+        return Object.assign({}, stored, {
+          score,
+          maxScore,
+          ratio,
+          beatPercent: ratio >= 1 ? 100 : Math.floor(ratio * 100 + 1e-9),
+          grade: gradeForRatio(ratio),
+        });
+      }
+      return legacyWriteSongRecord(songId);
+    }
+
+    function writeBestLabel(songId) {
+      const record = writeBestHistory(songId);
+      return record ? `${record.beatPercent}%·${record.grade}` : "暂无";
+    }
+
+    function writeHistoryText(songId) {
+      const record = writeBestHistory(songId);
+      return record ? `写歌最好 超过${record.beatPercent}%的人 · ${record.grade}` : "暂无写歌记录";
+    }
+
+    function saveWriteScore(songId, difficulty, speed, score) {
+      const key = writeRecordKey(songId, difficulty, speed);
+      const next = Math.max(0, Math.round(score || 0));
+      if (next <= Math.max(0, Number(writeRecords[key] || 0))) return;
+      writeRecords[key] = next;
+      safeStorageSet("mod_rush_write_records", JSON.stringify(writeRecords));
+      bestScore = Math.max(bestScore, next);
+      safeStorageSet("mod_rush_beat_best", String(bestScore));
+    }
+
+    function saveWriteSongHistory(songId, difficulty, speed, score, maxScore) {
+      const nextScore = Math.max(0, Math.round(score || 0));
+      const nextMax = Math.max(1, Math.round(maxScore || 1));
+      const nextRatio = clamp(nextScore / nextMax, 0, 1);
+      const current = writeBestHistory(songId);
+      if (current && nextRatio <= current.ratio + 1e-12) return;
+      writeSongHistory[songId] = {
+        score: nextScore,
+        maxScore: nextMax,
+        difficulty,
+        speed: Number(speed),
+      };
+      safeStorageSet(WRITE_SONG_HISTORY_KEY, JSON.stringify(writeSongHistory));
+    }
+
+    function challengeStage(loop = state.challengeLoop) {
+      const rawLoop = Math.max(0, Math.floor(loop || 0));
+      const index = Math.min(rawLoop, CHALLENGE.stages.length - 1);
+      const stage = CHALLENGE.stages[index];
+      if (rawLoop < CHALLENGE.stages.length) return Object.assign({}, stage, { index, loop: rawLoop });
+      const extra = rawLoop - CHALLENGE.stages.length + 1;
+      const uncappedStart = stage.speedEnd + (extra - 1) * CHALLENGE.endlessSpeedStep;
+      const speedStart = Math.min(CHALLENGE.maxSpeed, uncappedStart);
+      const speedEnd = Math.min(CHALLENGE.maxSpeed, speedStart + CHALLENGE.endlessSpeedStep);
+      return Object.assign({}, stage, {
+        speed: speedStart,
+        speedStart,
+        speedEnd,
+        label: speedStart >= CHALLENGE.maxSpeed ? "12x 极速挑战" : "无尽冲刺",
+        index,
+        loop: rawLoop,
+      });
+    }
+
+    function challengeSegmentLength(song, difficulty = "easy") {
+      const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.easy;
+      const floor = difficulty === "hard" ? 30 : difficulty === "normal" ? 20 : 10;
+      return Math.max(floor, song.phraseNotes && song.phraseNotes[difficulty] || diff.notes);
+    }
+
+    function challengeStageTarget(stage, song) {
+      if (stage && stage.target) return stage.target;
+      return challengeSegmentLength(song, stage && stage.difficulty || "easy");
+    }
+
+    function challengeSpeedFor(loop, index = 0, total = 1) {
+      const stage = challengeStage(loop);
+      const p = total <= 1 ? 0 : index / (total - 1);
+      const speed = stage.speedStart + (stage.speedEnd - stage.speedStart) * p;
+      return Math.round(speed * 100) / 100;
+    }
+
+    function challengeInstantSpeed() {
+      const events = state.musicEvents;
+      if (!events.length) return Math.max(.5, state.selectedSpeed || .5);
+      if (state.songCursor <= 0) return events[0].speed || .5;
+      const previous = events[Math.min(state.songCursor - 1, events.length - 1)];
+      const next = events[Math.min(state.songCursor, events.length - 1)];
+      if (!next || next === previous || next.playTime <= previous.playTime) return previous.speed || state.selectedSpeed;
+      const progress = clamp((state.gameTime - previous.playTime) / (next.playTime - previous.playTime), 0, 1);
+      return previous.speed + (next.speed - previous.speed) * progress;
+    }
+
+    function syncChallengeAudioSpeed() {
+      if (!isChallengeMode() || state.screen !== "play" || !state.running || state.paused) return;
+      const speed = clamp(challengeInstantSpeed(), .5, CHALLENGE.maxSpeed);
+      state.selectedSpeed = speed;
+      if (!gameAudioActive || !gameAudio) return;
+      try {
+        const playbackRate = effectiveGameSpeed(speed);
+        if (Math.abs(gameAudio.playbackRate - playbackRate) >= .005) gameAudio.playbackRate = playbackRate;
+      } catch (err) {}
+    }
+
+    function challengeStarsAfterLoop(loop) {
+      return CHALLENGE.starStageEnds.filter(endLoop => loop >= endLoop).length;
+    }
+
+    function withSelectedDifficulty(difficulty, fn) {
+      const previous = state.selectedDifficulty;
+      state.selectedDifficulty = difficulty;
+      try {
+        return fn();
+      } finally {
+        state.selectedDifficulty = previous;
+      }
+    }
+
+    function trackSpeed(track) {
+      return track === "menuCanon" ? 1 : effectiveGameSpeed(state.selectedSpeed);
+    }
+
+    function trackTempoScale(track) {
+      return track === "menuCanon" ? 1 : GAME_TEMPO_SCALE;
+    }
+
+    function trackBeatMs(track) {
+      const song = songForTrack(track);
+      return song ? song.beatMs : 620;
+    }
+
+    function trackSustain(track) {
+      const song = songForTrack(track);
+      return song ? song.sustain : 1.08;
+    }
+
+    function audioSourceForTrack(track) {
+      if (track === "menuCanon") return AUDIO_SOURCES.menuCanon;
+      const song = songForTrack(track);
+      return song ? AUDIO_SOURCES[song.id] : "";
+    }
+
+    function canUseRealAudio(src) {
+      return typeof Audio !== "undefined" && !!src && !failedAudioSources.has(src) && /\.(flac|mp3|wav|ogg|m4a)$/i.test(src);
+    }
+
+    function stopRealMenuAudio() {
+      if (!menuAudio) return;
+      try {
+        menuAudio.pause();
+        menuAudio.currentTime = 0;
+      } catch (err) {}
+      menuAudioActive = false;
+    }
+
+    function stopRealGameAudio() {
+      if (!gameAudio) return;
+      try {
+        gameAudio.pause();
+        gameAudio.currentTime = 0;
+      } catch (err) {}
+      gameAudioActive = false;
+    }
+
+    function pauseRealGameAudio() {
+      if (!gameAudio) return;
+      gameAudio.pause();
+      gameAudioActive = false;
+    }
+
+    function resumeRealGameAudio() {
+      if (!gameAudio || state.muted || state.screen !== "play" || state.paused) return false;
+      try {
+        gameAudio.playbackRate = effectiveGameSpeed(state.selectedSpeed);
+      } catch (err) {
+        gameAudioActive = false;
+        return false;
+      }
+      try {
+        const play = gameAudio.play();
+        gameAudioActive = true;
+        if (play && play.catch) play.catch(() => { gameAudioActive = false; });
+      } catch (err) {
+        gameAudioActive = false;
+        return false;
+      }
+      return true;
+    }
+
+    function ensureMenuAudio(track) {
+      const src = audioSourceForTrack(track);
+      if (!canUseRealAudio(src)) return null;
+      const key = `${track}:${src}`;
+      if (!menuAudio || menuAudioKey !== key) {
+        stopRealMenuAudio();
+        menuAudio = new Audio(src);
+        menuAudio.loop = true;
+        menuAudio.preload = "auto";
+        menuAudioKey = key;
+      }
+      menuAudio.loop = true;
+      menuAudio.preload = "auto";
+      menuAudio.volume = .42;
+      if (!menuAudio.dataset.errorHandlerReady) {
+        menuAudio.dataset.errorHandlerReady = "true";
+        menuAudio.addEventListener("error", () => {
+          failedAudioSources.add(src);
+          menuAudioActive = false;
+          startMenuMusic();
+        });
+      }
+      menuAudio.playbackRate = trackSpeed(track);
+      menuAudio.muted = state.muted;
+      return menuAudio;
+    }
+
+    function ensureGameAudio(song) {
+      const src = AUDIO_SOURCES[song.id];
+      if (!canUseRealAudio(src)) return null;
+      const key = `${song.id}:${src}`;
+      if (!gameAudio || gameAudioKey !== key) {
+        stopRealGameAudio();
+        gameAudio = new Audio(src);
+        gameAudio.loop = false;
+        gameAudio.preload = "auto";
+        gameAudio.volume = .58;
+        gameAudioKey = key;
+        gameAudio.addEventListener("error", () => {
+          failedAudioSources.add(src);
+          gameAudioActive = false;
+        });
+        gameAudio.addEventListener("ended", () => {
+          gameAudioActive = false;
+          if (isChallengeMode() && state.screen === "play" && state.running && state.energy > 0 && !state.muted) {
+            restartChallengeGameAudio();
+          }
+        });
+      }
+      gameAudio.playbackRate = effectiveGameSpeed(state.selectedSpeed);
+      gameAudio.muted = state.muted;
+      return gameAudio;
+    }
+
+    function restartChallengeGameAudio() {
+      if (!gameAudio || state.muted || !isChallengeMode() || state.screen !== "play" || !state.running) return false;
+      try {
+        gameAudio.currentTime = 0;
+        gameAudio.playbackRate = effectiveGameSpeed(clamp(state.selectedSpeed || .5, .5, CHALLENGE.maxSpeed));
+      } catch (err) {
+        gameAudioActive = false;
+        return false;
+      }
+      try {
+        const play = gameAudio.play();
+        gameAudioActive = true;
+        if (play && play.catch) play.catch(() => { gameAudioActive = false; });
+      } catch (err) {
+        gameAudioActive = false;
+        return false;
+      }
+      return true;
+    }
+
+    function startRealMenuAudio(track, restart = false) {
+      if (!menuMusicUnlocked || state.muted || state.screen !== "start") return false;
+      const audio = ensureMenuAudio(track);
+      if (!audio) return false;
+      try {
+        audio.loop = true;
+        if (restart || audio.paused || !menuAudioActive) audio.currentTime = 0;
+        if (menuAudioActive && !audio.paused && !restart) return true;
+        const play = audio.play();
+        if (play && play.catch) play.catch(error => {
+          menuAudioActive = false;
+          if (!error || error.name !== "NotAllowedError") startMenuMusic();
+        });
+        menuAudioActive = true;
+        return true;
+      } catch (err) {
+        failedAudioSources.add(audio.currentSrc || audio.src || audioSourceForTrack(track));
+        menuAudioActive = false;
+        return false;
+      }
+    }
+
+    function startRealGameAudio(song, restart = true) {
+      if (state.muted) return false;
+      const audio = ensureGameAudio(song);
+      if (!audio) return false;
+      try {
+        if (restart) audio.currentTime = 0;
+        else if (state.screen === "play" && Number.isFinite(audio.duration)) {
+          const scaled = state.gameTime / 1000 * effectiveGameSpeed(state.selectedSpeed);
+          audio.currentTime = isChallengeMode() && audio.duration ? scaled % audio.duration : Math.min(scaled, Math.max(0, audio.duration - .1));
+        }
+        const play = audio.play();
+        if (play && play.catch) play.catch(() => { gameAudioActive = false; });
+        gameAudioActive = true;
+        return true;
+      } catch (err) {
+        gameAudioActive = false;
+        return false;
+      }
+    }
+
+    function trackStepMs(track, step) {
+      return Math.max(140, (step.beats || 1) * trackBeatMs(track) * trackTempoScale(track) / trackSpeed(track));
+    }
+
+    function trackStepDuration(step, track) {
+      const speed = Math.max(.5, trackSpeed(track));
+      const beatDur = ((step.beats || 1) * trackBeatMs(track) * trackTempoScale(track)) / 1000;
+      return clamp(beatDur * trackSustain(track) / Math.sqrt(speed), .18, 1.85);
+    }
+
+    function playTrackStep(track, step, gain, delay, sparkle, sustainMs, holdTone = false) {
+      const speed = Math.max(.5, trackSpeed(track));
+      const base = noteFrequency(step.note);
+      const chord = noteFrequency(step.chord);
+      const dur = sustainMs ? clamp(sustainMs / 1000, .22, holdTone ? 4.2 : 2.85) : trackStepDuration(step, track);
+      const mainGain = holdTone ? gain * .9 : gain;
+      const gameplayPlayback = state.screen === "play";
+      const densePlayback = state.screen === "play" && speed >= 1.8;
+      const extremePlayback = densePlayback && speed >= 4;
+      pianoTone(base, dur, mainGain, delay, densePlayback ? (extremePlayback ? 1 : 2) : gameplayPlayback ? 3 : 4);
+      if (!extremePlayback) {
+        pianoTone(chord, dur * (holdTone ? 1.22 : 1.08), gain * (holdTone ? .58 : .42), (delay || 0) + .012, densePlayback ? 1 : gameplayPlayback ? 2 : 4);
+      }
+      if (!densePlayback) {
+        pianoTone(base * 1.5, dur * (holdTone ? 1.02 : .84), gain * (holdTone ? .28 : .34), (delay || 0) + .042, gameplayPlayback ? 1 : 4);
+        if (holdTone) pianoTone(base * .5, dur * 1.18, gain * .24, (delay || 0) + .02, gameplayPlayback ? 1 : 4);
+        if (sparkle) pianoTone(base * 2, .26 / Math.sqrt(speed), gain * .5, (delay || 0) + .1 / speed, gameplayPlayback ? 1 : 4);
+      }
+    }
+
+    function playSongStep(step, gain, delay, sparkle, sustainMs, holdTone = false) {
+      playTrackStep(SONGS[state.selectedSong].pattern, step, gain, delay, sparkle, sustainMs, holdTone);
+    }
+
+    function eventSustainMs(event) {
+      const note = event.note;
+      const gap = event.beatMs || 1200;
+      const holdBoost = note && note.isHold ? note.holdMs + 980 : gap * .74;
+      return clamp(holdBoost, 420, Math.max(520, gap - 160));
+    }
+
+    function rhythmProfile(step) {
+      const beats = step && step.beats || 1;
+      if (beats <= .5) return { tier: "fast", label: "快拍", gapFactor: .72, ease: -1 };
+      if (beats <= 1) return { tier: "steady", label: "稳拍", gapFactor: 1, ease: 0 };
+      if (beats <= 1.5) return { tier: "wide", label: "慢拍", gapFactor: 1.24, ease: 1 };
+      if (beats <= 2) return { tier: "slow", label: "长拍", gapFactor: 1.46, ease: 2 };
+      return { tier: "slowest", label: "超长拍", gapFactor: 1.68, ease: 3 };
+    }
+
+    function questionIntervalMs(song, step, scale = 1) {
+      const profile = rhythmProfile(step);
+      const raw = QUESTION_INTERVAL_MS.base * profile.gapFactor * scale;
+      return Math.round(clamp(raw, QUESTION_INTERVAL_MS.min * scale, QUESTION_INTERVAL_MS.max * scale));
+    }
+
+    function questionSpacingRatio(song, step, scale = 1) {
+      const referenceGap = questionIntervalMs(song, step, scale);
+      return clamp(
+        referenceGap / QUESTION_INTERVAL_MS.base * VISUAL_NOTE_SPACING.base,
+        VISUAL_NOTE_SPACING.min,
+        VISUAL_NOTE_SPACING.max
+      );
+    }
+
+    function chartNoteGapMs(song, step, speed, nextSpeed = speed, intervalScale = 1) {
+      const travelMs = noteTravelMs(song, speed);
+      const nextTravelMs = noteTravelMs(song, nextSpeed);
+      const spacingRatio = questionSpacingRatio(song, step, intervalScale);
+      return Math.max(
+        Math.round(nextTravelMs - travelMs + travelMs * spacingRatio),
+        visualSafeIntervalMs(travelMs)
+      );
+    }
+
+    function visualSafeIntervalMs(travelMs) {
+      const startY = view.spawnY - 150;
+      const travelDistance = Math.max(360, view.hitY - startY);
+      const noteH = view.w < 720 ? 90 : 100;
+      const safePx = noteH * 1.45;
+      return Math.ceil(travelMs * safePx / travelDistance);
+    }
+
+    function songTravelScale(song) {
+      const beatMs = song.beatMs || 520;
+      return clamp(beatMs / 560, .78, 1.18);
+    }
+
+    function challengeTravelMs(speedOverride = state.selectedSpeed) {
+      const speed = Math.max(.5, speedOverride);
+      const base = 8400 * NOTE_TRAVEL_SPEEDUP / Math.pow(speed / .5, .72);
+      return Math.round(clamp(base / GAME_SPEED_MULTIPLIER, 690, 7800));
+    }
+
+    function noteTravelMs(song, speedOverride = state.selectedSpeed) {
+      if (isChallengeMode()) return challengeTravelMs(speedOverride);
+      const base = 6200 * NOTE_TRAVEL_SPEEDUP;
+      const speedScale = Math.pow(Math.max(.5, speedOverride), .72);
+      return Math.round(clamp(base / speedScale / GAME_SPEED_MULTIPLIER, 1720, 7800));
+    }
+
+    function songNotePlan(song = SONGS[state.selectedSong], difficulty = state.selectedDifficulty, target = null) {
+      const configured = song.notePlan && song.notePlan[difficulty];
+      const configuredTotal = configured ? configured.short + configured.hold : 0;
+      const total = Math.max(1, target || configuredTotal || song.phraseNotes && song.phraseNotes[difficulty] || DIFFICULTIES[difficulty].notes);
+      const configuredHolds = configured ? configured.hold : Math.round(total * .2);
+      const hold = target && configuredTotal
+        ? clamp(Math.round(total * configuredHolds / configuredTotal), 0, total)
+        : clamp(configuredHolds, 0, total);
+      return { total, short: total - hold, hold };
+    }
+
+    function targetQuestionCount(song = SONGS[state.selectedSong]) {
+      return songNotePlan(song, state.selectedDifficulty).total;
+    }
+
+    function fixedHoldIndices(total, holdCount) {
+      const count = clamp(Math.round(holdCount || 0), 0, total);
+      const indices = new Set();
+      for (let i = 0; i < count; i++) {
+        indices.add(Math.floor((i + .5) * total / count));
+      }
+      return indices;
+    }
+
+    function holdDurationMs(event, gapAfter = Infinity, travelMs = 0) {
+      const difficulty = event && event.difficulty || state.selectedDifficulty;
+      const cfg = HOLD_TUNING[difficulty] || HOLD_TUNING.easy;
+      const speed = Math.max(.5, event && event.speed || state.selectedSpeed || 1);
+      const speedScale = Math.pow(speed / .5, .38);
+      const desired = (cfg.base + gapAfter * cfg.add) / speedScale;
+      const travelSafety = Math.max(HOLD_SAFETY_MS, travelMs * .24);
+      const maxByGap = gapAfter - travelSafety;
+      const speedVisualLimit = gapAfter * clamp(.46 / Math.pow(speed / .5, .24), .24, .48);
+      const maxHold = Math.min(cfg.max, maxByGap, speedVisualLimit);
+      if (maxHold < cfg.min) return 0;
+      return Math.round(clamp(desired, cfg.min, maxHold));
+    }
+
+    function fixedHoldDurationMs(event, gapAfter, travelMs) {
+      const tuned = holdDurationMs(event, gapAfter, travelMs);
+      if (tuned > 0) return tuned;
+      const difficulty = event && event.difficulty || state.selectedDifficulty;
+      const cfg = HOLD_TUNING[difficulty] || HOLD_TUNING.easy;
+      const speed = Math.max(.5, event && event.speed || state.selectedSpeed || 1);
+      const maxDuration = Math.max(160, Math.min(cfg.max, gapAfter * .3));
+      const minDuration = Math.min(240, maxDuration);
+      const desired = cfg.min / Math.pow(speed / .5, .28);
+      return Math.round(clamp(desired, minDuration, maxDuration));
+    }
+
+    function makeChart(song, pattern, options = {}) {
+      const chartDifficulty = options.difficulty || state.selectedDifficulty;
+      const stageIndex = options.stageIndex == null ? null : options.stageIndex;
+      const stageLabel = options.stageLabel || "";
+      const firstSpeed = options.speedForNote ? options.speedForNote(0, 0, options.target || targetQuestionCount(song)) : state.selectedSpeed;
+      const firstTravelMs = noteTravelMs(song, firstSpeed);
+      const firstHitTime = options.startTime != null ? options.startTime : firstTravelMs + 520;
+      const target = options.target || targetQuestionCount(song);
+      const notePlan = songNotePlan(song, chartDifficulty, target);
+      const holdIndices = options.allowHolds === false ? new Set() : fixedHoldIndices(target, notePlan.hold);
+      const musicEvents = [];
+      const chart = [];
+      let playTime = firstHitTime;
+      let index = options.startIndex || 0;
+      const startIndex = index;
+      while (chart.length < target && index < startIndex + target + pattern.length * 3) {
+        const step = pattern[index % pattern.length];
+        const localIndex = chart.length;
+        const profile = rhythmProfile(step);
+        const speed = options.speedForNote ? options.speedForNote(index, localIndex, target, step) : state.selectedSpeed;
+        const travelMs = noteTravelMs(song, speed);
+        // The 0.5x chart defines screen-space spacing. Faster modes only shorten
+        // travel time; they do not alter the distance or rhythm tier between notes.
+        const spacingRatio = questionSpacingRatio(song, step, options.intervalScale || 1);
+        const nextLocalIndex = Math.min(target - 1, localIndex + 1);
+        const nextSpeed = options.speedForNote
+          ? options.speedForNote(index + 1, nextLocalIndex, target, pattern[(index + 1) % pattern.length])
+          : state.selectedSpeed;
+        // Use one timing rule for gameplay and menu preview. Speed changes travel
+        // time only; the 0.5x screen-space spacing remains the source of truth.
+        const gapAfter = chartNoteGapMs(song, step, speed, nextSpeed, options.intervalScale || 1);
+        const isWarmup = false;
+        const eventDifficulty = chartDifficulty;
+        const event = {
+          id: (options.idOffset || 0) + musicEvents.length,
+          round: Math.floor(index / pattern.length),
+          musicStep: step,
+          playTime,
+          beatMs: gapAfter,
+          hasQuestion: true,
+          speed,
+          difficulty: eventDifficulty,
+          stageIndex,
+          stageLabel,
+          rhythmTier: profile.tier,
+          rhythmLabel: profile.label,
+        };
+        const holdMs = !isWarmup && holdIndices.has(localIndex) ? fixedHoldDurationMs(event, gapAfter, travelMs) : 0;
+        const isHold = holdMs > 0;
+        const note = {
+          id: event.id,
+          challenge: makeChallenge((options.noteOffset || 0) + chart.length, {
+            difficulty: eventDifficulty,
+            rhythmTier: profile.tier,
+            rhythmLabel: profile.label,
+            rhythmEase: profile.ease,
+            warmup: false,
+            warmupIndex: 0,
+          }),
+          musicStep: event.musicStep,
+          hitTime: event.playTime,
+          holdEndTime: event.playTime + holdMs,
+          spawnTime: event.playTime - travelMs,
+          travelMs,
+          beatMs: event.beatMs,
+          intervalMs: gapAfter,
+          speed,
+          difficulty: eventDifficulty,
+          stageIndex,
+          stageLabel,
+          rhythmTier: profile.tier,
+          rhythmLabel: profile.label,
+          warmup: false,
+          isHold,
+          holdMs,
+          loop: options.loop || 0,
+          loopIndex: localIndex,
+          isLoopEnd: localIndex === target - 1,
+          headJudged: false,
+          holdStartTime: 0,
+          selectedLane: null,
+          judged: false,
+          fade: 0,
+          y: view.spawnY - 150,
+        };
+        event.note = note;
+        chart.push(note);
+        musicEvents.push(event);
+        playTime += gapAfter;
+        index++;
+      }
+      return {
+        chart: chart.sort((a, b) => a.spawnTime - b.spawnTime),
+        musicEvents,
+        nextStartTime: playTime,
+        nextIndex: index,
+      };
+    }
+
+    function makeChallengeLoop(song, loop, startTime, startIndex, idOffset, noteOffset) {
+      const pattern = MUSIC_PATTERNS[song.pattern] || MUSIC_PATTERNS.ode;
+      const stage = challengeStage(loop);
+      const target = challengeStageTarget(stage, song);
+      return withSelectedDifficulty(stage.difficulty, () => makeChart(song, pattern, {
+        target,
+        startTime,
+        startIndex,
+        idOffset,
+        noteOffset,
+        loop,
+        difficulty: stage.difficulty,
+        stageIndex: stage.index,
+        stageLabel: stage.label,
+        intervalScale: 1,
+        allowHolds: false,
+        speedForNote: (absoluteIndex, localIndex, total) => challengeSpeedFor(loop, localIndex, total),
+      }));
+    }
+
+    function setChallengeStageFromLoop(loop) {
+      const stage = challengeStage(loop);
+      state.selectedDifficulty = stage.difficulty;
+      state.selectedSpeed = stage.speedStart;
+      state.challengeStageIndex = stage.index;
+      state.challengeStageLabel = stage.label;
+      return stage;
+    }
+
+    function setChallengeStageFromEvent(event) {
+      if (!event) return challengeStage();
+      state.selectedDifficulty = event.difficulty || state.selectedDifficulty;
+      state.selectedSpeed = event.speed || state.selectedSpeed;
+      state.challengeStageIndex = event.stageIndex == null ? state.challengeStageIndex : event.stageIndex;
+      state.challengeStageLabel = event.stageLabel || challengeStage(state.challengeStageIndex).label;
+      return {
+        difficulty: state.selectedDifficulty,
+        speed: state.selectedSpeed,
+        index: state.challengeStageIndex,
+        label: state.challengeStageLabel,
+      };
+    }
+
+    function challengeStatusLabel() {
+      const lastEvent = state.musicEvents[Math.max(0, state.songCursor - 1)];
+      const current = currentTargetNote() || state.chart[state.spawnCursor] || lastEvent && lastEvent.note;
+      const currentDifficulty = current && current.difficulty || state.selectedDifficulty;
+      const diff = DIFFICULTIES[currentDifficulty] && DIFFICULTIES[currentDifficulty].title || "基础";
+      const speed = clamp(challengeInstantSpeed(), .5, CHALLENGE.maxSpeed);
+      return `${speed.toFixed(2)}x · ${diff}`;
+    }
+
+    function noteSpeedDifficultyLabel(note) {
+      const noteDifficulty = note && note.difficulty || state.selectedDifficulty;
+      const diff = DIFFICULTIES[noteDifficulty] && DIFFICULTIES[noteDifficulty].title || "基础";
+      const speed = isChallengeMode() ? clamp(challengeInstantSpeed(), .5, CHALLENGE.maxSpeed) : note && note.speed || state.selectedSpeed || 1;
+      const tuning = note && note.challenge && note.challenge.tuningLabel || diff;
+      return `瞬时 ${speed.toFixed(2)}x · ${diff}题 · ${note && note.rhythmLabel || "稳拍"} · ${tuning}`;
+    }
+
+    function appendChallengeLoop(loop) {
+      const song = SONGS[state.selectedSong];
+      const stage = setChallengeStageFromLoop(loop);
+      const startTime = state.challengeNextStartTime || noteTravelMs(song, .5) + 520;
+      const data = makeChallengeLoop(song, loop, startTime, state.challengePatternIndex, state.totalNotes, state.totalNotes);
+      state.chart.push.apply(state.chart, data.chart);
+      state.musicEvents.push.apply(state.musicEvents, data.musicEvents);
+      state.challengeNextStartTime = data.nextStartTime;
+      state.challengePatternIndex = data.nextIndex;
+      state.challengeSegmentNotes = data.chart.length;
+      state.challengeSegmentHit = 0;
+      state.totalNotes += data.chart.length;
+      state.trackEndTime = Infinity;
+      state.challengeStageLabel = stage.label;
+      queueNoteSpriteWarmup(data.chart);
+    }
+
+    function awardChallengeStar(loop) {
+      const nextStars = Math.min(CHALLENGE.starLoops, challengeStarsAfterLoop(loop));
+      if (nextStars > state.challengeStars) {
+        state.challengeStars = nextStars;
+        saveChallengeStars(SONGS[state.selectedSong].id, nextStars);
+        const nextStage = challengeStage(loop + 1);
+        if (nextStars >= CHALLENGE.starLoops) {
+          showJudge("无尽冲刺啦！", `${starString(nextStars)} 六颗星全部点亮，继续加速，最高12x`, "perfect");
+          spawnStarShower(34);
+        } else {
+          showJudge(`${nextStars} 星`, `${starString(nextStars)} 点亮啦，下一段 ${nextStage.label}`, "perfect");
+          spawnStarShower(18 + nextStars * 2);
+        }
+        sfx.finish();
+      }
+    }
+
+    function handleChallengeLoopEnd(note) {
+      if (!isChallengeMode() || !note.isLoopEnd || note.loopCompleted) return;
+      note.loopCompleted = true;
+      if (state.energy <= 0) return;
+      awardChallengeStar(note.loop);
+      state.challengeLoop = note.loop + 1;
+      state.chart = state.chart.slice(state.spawnCursor);
+      state.spawnCursor = 0;
+      state.musicEvents = state.musicEvents.slice(state.songCursor);
+      state.songCursor = 0;
+      appendChallengeLoop(state.challengeLoop);
+      updateHUD();
+    }
+
+    function currentTargetNote() {
+      const held = state.activeNotes.find(note => note.isHold && note.headJudged && !note.judged);
+      if (held) return held;
+      const live = state.activeNotes.filter(note => !note.judged);
+      if (!live.length) return null;
+      live.sort((a, b) => Math.abs(a.hitTime - state.gameTime) - Math.abs(b.hitTime - state.gameTime));
+      return live[0];
+    }
+
+    function questionPreviewPair() {
+      const queuedCurrent = state.chart[state.spawnCursor] || null;
+      const current = currentTargetNote() || queuedCurrent;
+      let next = null;
+      if (current) {
+        for (const note of state.activeNotes) {
+          if (!note.judged && note !== current && note.hitTime > current.hitTime && (!next || note.hitTime < next.hitTime)) next = note;
+        }
+        const queuedIndex = queuedCurrent === current ? state.spawnCursor + 1 : state.spawnCursor;
+        const queuedNext = state.chart[queuedIndex] || null;
+        if (queuedNext && queuedNext.hitTime > current.hitTime && (!next || queuedNext.hitTime < next.hitTime)) next = queuedNext;
+      }
+      return { current, next };
+    }
+
+    function setQuestionPreview(currentText, nextText = "--") {
+      const currentValue = currentText || "听节奏";
+      const nextValue = nextText || "--";
+      if (ui.currentQuestion.textContent !== currentValue) ui.currentQuestion.textContent = currentValue;
+      if (ui.nextQuestion.textContent !== nextValue) ui.nextQuestion.textContent = nextValue;
+      if (ui.currentQuestion.title !== (currentText || "")) ui.currentQuestion.title = currentText || "";
+      if (ui.nextQuestion.title !== (nextText || "")) ui.nextQuestion.title = nextText || "";
+      const sizeFor = (text, current) => {
+        const length = String(text || "").length;
+        if (length > 44) return current ? "11px" : "10px";
+        if (length > 34) return current ? "12px" : "11px";
+        if (length > 24) return current ? "14px" : "12px";
+        return current ? "18px" : "13px";
+      };
+      const currentSize = sizeFor(currentText, true);
+      const nextSize = sizeFor(nextText, false);
+      if (ui.currentQuestion.style.fontSize !== currentSize) ui.currentQuestion.style.fontSize = currentSize;
+      if (ui.nextQuestion.style.fontSize !== nextSize) ui.nextQuestion.style.fontSize = nextSize;
+    }
+
+    function updatePromptFromTarget() {
+      const { current: target, next } = questionPreviewPair();
+      const signature = target
+        ? `${state.selectedMode}|${target.id}|${next ? next.id : ""}|${target.isHold ? 1 : 0}|${target.warmup ? 1 : 0}`
+        : `${state.selectedMode}|none`;
+      if (signature === lastPromptSignature) return;
+      lastPromptSignature = signature;
+      if (!target) {
+        setQuestionPreview("听节奏", "--");
+        ui.promptHint.textContent = isChallengeMode()
+          ? "准备下一题"
+          : state.selectedMode === "listen"
+          ? "听歌模式会自动踩线演奏"
+          : "下一组题目会隔一大段强拍再出现";
+        return;
+      }
+      setQuestionPreview(target.challenge.prompt, next && next.challenge && next.challenge.prompt || "本曲结束");
+      ui.promptHint.textContent = isChallengeMode()
+        ? target.warmup
+          ? "热身音符，先找准按键手感"
+          : target.isHold
+            ? "长音题：选对答案后按住，直到能量蓄满"
+            : `${target.rhythmLabel || "稳拍"} · 选出正确余数`
+        : state.selectedMode === "listen"
+        ? "听歌模式会自动踩准节奏"
+        : target.warmup
+          ? "热身音符，先找准 A / S / D"
+          : target.isHold
+          ? "长音符贴近判定线时按住 A / S / D"
+          : "音符贴近判定线时按 A / S / D";
+    }
+
+    function stopSynthMenuMusic() {
+      if (menuMusicTimer !== null) {
+        clearTimeout(menuMusicTimer);
+        menuMusicTimer = null;
+      }
+    }
+
+    function rebuildMenuPreviewEvents(track) {
+      const song = songForTrack(track);
+      if (!song) {
+        menuPreviewEvents = [];
+        menuPreviewLastPlayTime = 0;
+        return;
+      }
+      const pattern = MUSIC_PATTERNS[track] || MUSIC_PATTERNS.ode;
+      const target = targetQuestionCount(song);
+      menuPreviewEvents = Array.from({ length: target }, (_, index) => {
+        const step = pattern[index % pattern.length];
+        const gap = chartNoteGapMs(song, step, state.selectedSpeed, state.selectedSpeed, 1);
+        return { musicStep: step, beatMs: gap, note: { isHold: false } };
+      });
+      menuPreviewLastPlayTime = 0;
+    }
+
+    function stopMenuMusic() {
+      stopSynthMenuMusic();
+      stopRealMenuAudio();
+    }
+
+    function scheduleMenuMusic() {
+      stopSynthMenuMusic();
+      if (!menuMusicUnlocked || state.muted || state.screen !== "start") return;
+      if (startRealMenuAudio(menuMusicTrack)) return;
+      if (menuMusicTrack !== "menuCanon") {
+        if (!menuPreviewEvents.length) rebuildMenuPreviewEvents(menuMusicTrack);
+        if (menuMusicCursor >= menuPreviewEvents.length) menuMusicCursor = 0;
+        const event = menuPreviewEvents[menuMusicCursor];
+        if (!event) return;
+        menuMusicCursor++;
+        menuPreviewLastPlayTime += event.beatMs;
+        playTrackStep(
+          menuMusicTrack,
+          event.musicStep,
+          .04,
+          0,
+          menuMusicCursor % 8 === 1,
+          eventSustainMs(event),
+          false
+        );
+        menuMusicTimer = setTimeout(scheduleMenuMusic, event.beatMs);
+        return;
+      }
+      const pattern = MUSIC_PATTERNS[menuMusicTrack] || MUSIC_PATTERNS.menuCanon;
+      if (menuMusicCursor >= pattern.length) menuMusicCursor = 0;
+      const step = pattern[menuMusicCursor];
+      menuMusicCursor++;
+      const beats = step.beats || 1;
+      const gain = menuMusicTrack === "menuCanon" ? .032 : .04;
+      playTrackStep(menuMusicTrack, step, gain, 0, menuMusicCursor % 8 === 1);
+      if (menuMusicCursor % 4 === 0) {
+        pianoTone(noteFrequency(step.chord) * 1.5, trackStepDuration(step, menuMusicTrack) * .72, gain * .28, .04);
+      }
+      menuMusicTimer = setTimeout(scheduleMenuMusic, Math.max(180, trackStepMs(menuMusicTrack, step)));
+    }
+
+    function startMenuMusic() {
+      if (!menuMusicUnlocked || state.muted || state.screen !== "start" || menuMusicTimer !== null) return;
+      scheduleMenuMusic();
+    }
+
+    function unlockMenuMusic() {
+      menuMusicUnlocked = true;
+      startMenuMusic();
+    }
+
+    function refreshMenuMusic(restart = false) {
+      const nextTrack = currentMenuTrack();
+      if (menuMusicTrack !== nextTrack || restart) {
+        menuMusicTrack = nextTrack;
+        menuMusicCursor = 0;
+        rebuildMenuPreviewEvents(nextTrack);
+        stopMenuMusic();
+      }
+      startMenuMusic();
+    }
+
+    function stopGameMusic() {
+      stopRealGameAudio();
+    }
+
+    // Music is synthesized locally with Web Audio oscillators; no external audio assets are used.
+    const sfx = {
+      tap() { pianoTone(523.25, .18, .026); },
+      wrongPulse() {
+        pianoTone(130.81, .3, .038);
+        pianoTone(98, .32, .026, .025);
+      },
+      start() { [261.63, 329.63, 392, 523.25].forEach((f, i) => pianoTone(f, .42, .11, i * .075)); },
+      finish() { [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => pianoTone(f, .5, .11, i * .08)); },
+      empty() { [246.94, 196, 146.83].forEach((f, i) => pianoTone(f, .36, .06, i * .07)); },
+      songNote(step, rating) {
+        const gain = rating === "MISS" ? .046 : .105;
+        playSongStep(step, gain, 0, rating === "PERFECT", 740);
+      },
+    };
+
+    function rebuildRenderCaches() {
+      noteBodyCache.clear();
+      noteTextCache.clear();
+      receptorSprite = null;
+      const top = Math.max(86, view.h * .15);
+      const bottom = view.hitY + 92;
+      laneStageGradient = ctx.createLinearGradient(0, top, 0, bottom);
+      laneStageGradient.addColorStop(0, "rgba(247,244,233,.025)");
+      laneStageGradient.addColorStop(.72, "rgba(247,244,233,.055)");
+      laneStageGradient.addColorStop(1, "rgba(248,216,74,.08)");
+      laneFillGradients[0].length = 0;
+      laneFillGradients[1].length = 0;
+      for (let index = 0; index < 3; index++) {
+        const x = view.lanes[index] - view.laneW / 2;
+        const normal = ctx.createLinearGradient(x, top, x, bottom);
+        normal.addColorStop(0, "rgba(247,244,233,.0275)");
+        normal.addColorStop(.74, "rgba(247,244,233,.055)");
+        normal.addColorStop(1, "rgba(247,244,233,.075)");
+        laneFillGradients[0].push(normal);
+        const active = ctx.createLinearGradient(x, top, x, bottom);
+        active.addColorStop(0, "rgba(247,244,233,.09)");
+        active.addColorStop(.74, "rgba(247,244,233,.18)");
+        active.addColorStop(1, "rgba(248,216,74,.18)");
+        laneFillGradients[1].push(active);
+      }
+    }
+
+    function resize() {
+      view.w = Math.floor(window.innerWidth);
+      view.h = Math.floor(window.innerHeight);
+      view.dpr = view.w * view.h > 1000000 ? .8 : 1;
+      canvas.width = Math.floor(view.w * view.dpr);
+      canvas.height = Math.floor(view.h * view.dpr);
+      ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      backdropLayer.width = Math.floor(view.w * view.dpr);
+      backdropLayer.height = Math.floor(view.h * view.dpr);
+      backdropCtx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      backdropLastRender = -Infinity;
+      backdropSongIndex = -1;
+      const margin = view.w < 720 ? 32 : 90;
+      const usable = Math.max(310, view.w - margin * 2);
+      view.lanes = [margin + usable * .17, margin + usable * .5, margin + usable * .83];
+      view.laneW = Math.min(250, usable * .28);
+      view.noteW = Math.min(238, Math.max(104, usable * .27));
+      view.spawnY = Math.max(96, view.h * .18);
+      view.hitY = view.h - (view.w < 720 ? 136 : 150);
+      rebuildRenderCaches();
+      rebuildVignetteLayer();
+      laneButtons.forEach((button, index) => {
+        button.style.left = `${view.lanes[index]}px`;
+        button.style.width = `${view.laneW}px`;
+      });
+    }
+
+    function rebuildVignetteLayer() {
+      vignetteLayer.width = Math.floor(view.w * view.dpr);
+      vignetteLayer.height = Math.floor(view.h * view.dpr);
+      vignetteCtx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      const g = vignetteCtx.createRadialGradient(view.w / 2, view.h * .52, view.h * .2, view.w / 2, view.h * .52, view.h * .72);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,.43)");
+      vignetteCtx.fillStyle = g;
+      vignetteCtx.fillRect(0, 0, view.w, view.h);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function choice(list) { return list[Math.floor(Math.random() * list.length)]; }
+    function shuffle(list) {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+      return list;
+    }
+    function intDiv(a, b) { return Math.trunc(a / b); }
+    function decimalModValue(x, m) {
+      const value = x - Math.trunc(x / m) * m;
+      return Math.round(value * 10) / 10;
+    }
+    function moduloReason(value, mod, result, lead = "") {
+      const quotient = Math.trunc(value / mod);
+      const prefix = lead ? `${lead}，` : "";
+      return `${prefix}${value} 里面有 ${quotient} 个 ${mod}，还剩 ${result}，所以 ${value} % ${mod} = ${result}`;
+    }
+    const LANE_OPTION_COLORS = ["#ffb1db", "#7bdff2", "#f8d84a"];
+
+    function formatAnswer(value, digits = null) {
+      if (Number.isInteger(digits)) return Number(value).toFixed(digits);
+      return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    }
+
+    function makeAnswerOptions(answer, candidates, reason, digits = null) {
+      const answerText = formatAnswer(answer, digits);
+      const values = [Number(answer)];
+      const shown = new Set([answerText]);
+      for (const candidate of candidates) {
+        const value = Number(candidate);
+        const text = formatAnswer(value, digits);
+        if (!Number.isFinite(value) || value < 0 || shown.has(text)) continue;
+        values.push(value);
+        shown.add(text);
+        if (values.length === 3) break;
+      }
+      let step = Number.isInteger(digits) ? Math.pow(10, -digits) : Number.isInteger(answer) ? 1 : .5;
+      while (values.length < 3) {
+        const value = Number(answer) + step * values.length;
+        const text = formatAnswer(value, digits);
+        if (!shown.has(text)) {
+          values.push(value);
+          shown.add(text);
+        } else {
+          step += Number.isInteger(digits) ? Math.pow(10, -digits) : Number.isInteger(answer) ? 1 : .5;
+        }
+      }
+      const options = shuffle(values.map(value => ({
+        text: formatAnswer(value, digits),
+        value,
+        ok: formatAnswer(value, digits) === answerText,
+        reason,
+      })));
+      options.forEach((option, lane) => { option.color = LANE_OPTION_COLORS[lane]; });
+      return options;
+    }
+
+    function moduloDecoys(answer, mod, decimal = false) {
+      const step = decimal ? .5 : 1;
+      return [
+        (answer + step) % mod,
+        (answer + step * 2) % mod,
+        Math.max(0, answer - step),
+        mod,
+        answer + mod,
+      ];
+    }
+
+    function makeModuloQuestion(n, limit = 10, starter = false) {
+      const mods = starter ? [2, 3, 5] : limit <= 20 ? [2, 3, 4, 5, 6] : [2, 3, 4, 5, 6, 7, 8, 9];
+      const mod = choice(mods);
+      const answer = n % mod;
+      const reason = moduloReason(n, mod, answer);
+      const options = makeAnswerOptions(answer, moduloDecoys(answer, mod), reason);
+      return {
+        prompt: `${n} % ${mod} = ?`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        questionType: "integer-mod",
+      };
+    }
+
+    function makeHardExpressionQuestion(limit = 10) {
+      const operation = choice(["+", "-", "*", "/"]);
+      const mod = rand(2, 6);
+      let left;
+      let right;
+      let raw;
+      let lead;
+      if (operation === "/") {
+        right = rand(2, 5);
+        raw = rand(1, Math.max(1, Math.floor(limit / right)));
+        left = raw * right;
+        lead = `先算 ${left} / ${right} = ${raw}`;
+      } else if (operation === "+") {
+        left = rand(1, Math.max(1, limit - 1));
+        right = rand(1, Math.max(1, limit - left));
+        raw = left + right;
+        lead = `先算 ${left} + ${right} = ${raw}`;
+      } else if (operation === "*") {
+        left = rand(1, Math.max(1, Math.floor(limit / 2)));
+        right = rand(1, Math.max(1, Math.floor(limit / left)));
+        raw = left * right;
+        lead = `先算 ${left} * ${right} = ${raw}`;
+      } else {
+        left = rand(2, limit);
+        right = rand(1, Math.min(5, limit));
+        right = Math.min(right, left);
+        raw = left - right;
+        lead = `先算 ${left} - ${right} = ${raw}`;
+      }
+      const answer = raw % mod;
+      const reason = moduloReason(raw, mod, answer, lead);
+      const options = makeAnswerOptions(answer, moduloDecoys(answer, mod), reason);
+      return {
+        prompt: `(${left} ${operation} ${right}) % ${mod} = ?`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        questionType: "expression-mod",
+      };
+    }
+
+    function makeHardCastQuestion(limit = 30) {
+      const whole = rand(2, Math.max(2, limit - 1));
+      const decimal = choice([.1, .2, .5, .8, .9]);
+      const value = Math.round((whole + decimal) * 10) / 10;
+      const castValue = Math.trunc(value);
+      const mod = rand(2, 6);
+      const answer = castValue % mod;
+      const reason = `(int)${value.toFixed(1)} 先转成 ${castValue}，再算 ${castValue} % ${mod} = ${answer}`;
+      const options = makeAnswerOptions(answer, moduloDecoys(answer, mod), reason);
+      return {
+        prompt: `((int)${value.toFixed(1)}) % ${mod} = ?`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        questionType: "cast-mod",
+      };
+    }
+
+    function makeHardRightExpressionModQuestion(limit = 30) {
+      const left = rand(2, limit);
+      const operation = choice(["+", "-", "*", "/"]);
+      let a;
+      let b;
+      let modulus;
+      if (operation === "+") {
+        a = rand(1, limit - 1);
+        b = rand(1, limit - a);
+        modulus = a + b;
+      } else if (operation === "-") {
+        a = rand(2, limit);
+        b = rand(1, a - 1);
+        modulus = a - b;
+      } else if (operation === "*") {
+        a = rand(1, Math.max(1, Math.floor(limit / 2)));
+        b = rand(1, Math.max(1, Math.floor(limit / a)));
+        modulus = a * b;
+      } else {
+        b = rand(1, Math.min(5, limit));
+        modulus = rand(1, Math.max(1, Math.floor(limit / b)));
+        a = modulus * b;
+      }
+      const answer = left % modulus;
+      const reason = `先算括号 ${a} ${operation} ${b} = ${modulus}，再算 ${left} % ${modulus} = ${answer}`;
+      const options = makeAnswerOptions(answer, moduloDecoys(answer, modulus), reason);
+      return {
+        prompt: `${left} % (${a} ${operation} ${b}) = ?`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        questionType: "right-expression-mod",
+      };
+    }
+
+    function makeHardModuloThenDivideQuestion(limit = 30) {
+      const a = rand(2, limit);
+      const mod = rand(2, 8);
+      const divisor = choice([2, 4, 5]);
+      const remainder = a % mod;
+      const answer = remainder / divisor;
+      const digits = answer * 10 === Math.trunc(answer * 10) ? 1 : 2;
+      const reason = `先算 ${a} % ${mod} = ${remainder}，再算 ${remainder} / ${divisor}.0 = ${answer.toFixed(digits)}`;
+      const candidates = [answer + 1 / divisor, Math.max(0, answer - 1 / divisor), remainder, answer + 1];
+      const options = makeAnswerOptions(answer, candidates, reason, digits);
+      return {
+        prompt: `(${a} % ${mod}) / ${divisor}.0 = ?（保留${digits}位）`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        outputDigits: digits,
+        questionType: "mod-then-double-divide",
+      };
+    }
+
+    function makeHardPrintfQuestion(limit = 30) {
+      if (Math.random() < .5) {
+        const left = rand(2, limit);
+        const a = rand(1, Math.max(1, limit - 1));
+        const b = rand(1, Math.max(1, limit - a));
+        const modulus = a + b;
+        const answer = left % modulus;
+        const reason = `先算括号 ${a} + ${b} = ${modulus}，再算 ${left} % ${modulus} = ${answer}；%d 输出整数`;
+        const options = makeAnswerOptions(answer, moduloDecoys(answer, modulus), reason);
+        return {
+          prompt: `printf("%d", ${left} % (${a} + ${b}));`,
+          options,
+          correctLane: options.findIndex(item => item.ok),
+          reason,
+          answerValue: answer,
+          outputDigits: 0,
+          questionType: "printf-int",
+        };
+      }
+      const a = rand(2, limit);
+      const mod = rand(2, 8);
+      const divisor = choice([2, 4, 5]);
+      const remainder = a % mod;
+      const answer = remainder / divisor;
+      const digits = answer * 10 === Math.trunc(answer * 10) ? 1 : 2;
+      const reason = `先算 ${a} % ${mod} = ${remainder}，再算 ${remainder} / ${divisor}.0 = ${answer.toFixed(digits)}；%.${digits}f 保留 ${digits} 位小数`;
+      const candidates = [answer + 1 / divisor, Math.max(0, answer - 1 / divisor), remainder, answer + 1];
+      const options = makeAnswerOptions(answer, candidates, reason, digits);
+      return {
+        prompt: `printf("%.${digits}f", (${a} % ${mod}) / ${divisor}.0);`,
+        options,
+        correctLane: options.findIndex(item => item.ok),
+        reason,
+        answerValue: answer,
+        outputDigits: digits,
+        questionType: "printf-double",
+      };
+    }
+
+    function makeHardQuestion(limit = 10, rhythmTier = "steady") {
+      const types = rhythmTier === "fast"
+        ? [makeHardCastQuestion, makeHardExpressionQuestion, makeHardRightExpressionModQuestion]
+        : [makeHardCastQuestion, makeHardExpressionQuestion, makeHardRightExpressionModQuestion, makeHardModuloThenDivideQuestion, makeHardPrintfQuestion];
+      return choice(types)(limit);
+    }
+
+    function localQuestionLimit(difficulty, rhythmTier = "steady") {
+      const base = NUMBER_LIMITS[difficulty];
+      if (difficulty === "easy") {
+        if (rhythmTier === "fast") return 12;
+        if (rhythmTier === "steady") return 16;
+        return base;
+      }
+      if (difficulty === "normal") {
+        if (rhythmTier === "fast") return 30;
+        if (rhythmTier === "steady") return 40;
+        return base;
+      }
+      if (rhythmTier === "fast") return 18;
+      if (rhythmTier === "steady") return 24;
+      return base;
+    }
+
+    function localQuestionNumber(limit, rhythmTier = "steady") {
+      if (rhythmTier === "slow" || rhythmTier === "slowest") return rand(Math.max(2, limit - 3), limit);
+      return rand(2, limit);
+    }
+
+    function questionTuningLabel(difficulty, rhythmTier = "steady") {
+      const diff = DIFFICULTIES[difficulty] && DIFFICULTIES[difficulty].title || "基础";
+      if (rhythmTier === "fast") return `${diff}快拍简题`;
+      if (rhythmTier === "slow" || rhythmTier === "slowest") return `${diff}长拍难题`;
+      if (rhythmTier === "wide") return `${diff}慢拍进阶`;
+      return `${diff}稳拍`;
+    }
+
+    function makeChallenge(noteNumber = 0, context = {}) {
+      if (context.warmup) {
+        const warmupNumbers = [6, 7, 8, 9];
+        const n = warmupNumbers[context.warmupIndex % warmupNumbers.length];
+        return Object.assign({}, makeModuloQuestion(n, 10, true), { tuningLabel: "热身拍" });
+      }
+      const difficulty = context.difficulty || state.selectedDifficulty;
+      const rhythmTier = context.rhythmTier || "steady";
+      const limit = localQuestionLimit(difficulty, rhythmTier);
+      const n = localQuestionNumber(limit, rhythmTier);
+      const question = difficulty === "hard"
+        ? makeHardQuestion(limit, rhythmTier)
+        : makeModuloQuestion(n, limit, noteNumber < 5 || rhythmTier === "fast");
+      return Object.assign({}, question, { tuningLabel: questionTuningLabel(difficulty, rhythmTier) });
+    }
+
+    function setMenuStep(step) {
+      state.menuStep = step;
+      ui.modeStep.classList.toggle("active", step === "mode");
+      ui.setupStep.classList.toggle("active", step === "setup");
+      ui.challengeStep.classList.toggle("active", step === "challenge");
+      ui.guideStep.classList.toggle("active", step === "guide");
+      ui.startPanel.classList.toggle("compact", step === "setup" || step === "challenge" || step === "guide");
+      if (step === "guide") resetGuidePractice();
+      setQuestionPreview(step === "mode" ? "选择模式" : step === "guide" ? "新手练习" : "选择歌曲", "--");
+      ui.promptHint.textContent = step === "mode" ? "先选写歌、听歌或挑战" : step === "challenge" ? "选择一首歌直接闯关" : step === "guide" ? "跟着三步练一次" : "设置歌曲、难度和倍速";
+      refreshMenuMusic(true);
+    }
+
+    function resetGuidePractice() {
+      ui.guideHint.textContent = "余数是多少？试着按键或点击答案。";
+      ui.guideHint.className = "guide-hint";
+      guideOptions.forEach(btn => btn.classList.remove("correct", "wrong"));
+    }
+
+    function tryGuideLane(lane) {
+      if (state.screen !== "start" || state.menuStep !== "guide") return false;
+      guideOptions.forEach(btn => btn.classList.remove("correct", "wrong"));
+      const btn = guideOptions[lane];
+      if (!btn) return true;
+      if (lane === 1) {
+        btn.classList.add("correct");
+        ui.guideHint.textContent = "答对啦！8 除以 3 余 2，所以按 S。";
+        ui.guideHint.className = "guide-hint success";
+        sfx.tap();
+      } else {
+        btn.classList.add("wrong");
+        ui.guideHint.textContent = "再想一想：8 = 3 × 2 + 2。";
+        ui.guideHint.className = "guide-hint try-again";
+        sfx.wrongPulse();
+      }
+      return true;
+    }
+
+    function renderSelectUI() {
+      ui.modeGrid.innerHTML = "";
+      MODES.forEach(mode => {
+        const btn = document.createElement("button");
+        btn.className = "select-card mode-card" + (state.selectedMode === mode.id ? " on" : "");
+        btn.type = "button";
+        btn.style.setProperty("--accent", mode.accent);
+        btn.innerHTML = `<div class="song-title">${mode.title}</div><div class="song-sub">${mode.sub}</div>`;
+        btn.addEventListener("click", () => {
+          state.selectedMode = mode.id;
+          if (mode.id === "challenge") {
+            state.selectedDifficulty = CHALLENGE.difficulty;
+            state.selectedSpeed = .5;
+            setMenuStep("challenge");
+          } else {
+            setMenuStep("setup");
+          }
+          renderSelectUI();
+        });
+        ui.modeGrid.appendChild(btn);
+      });
+
+      const mode = MODES.find(item => item.id === state.selectedMode);
+      ui.setupModeLabel.textContent = mode.title;
+      ui.setupModeLabel.style.color = mode.accent;
+      const setupBest = state.selectedMode === "write"
+        ? ` · 个人最佳 ${writeBestLabel(SONGS[state.selectedSong].id)}`
+        : "";
+      ui.setupSummary.textContent = `${mode.title} · ${SONGS[state.selectedSong].title} · ${DIFFICULTIES[state.selectedDifficulty].title} · ${state.selectedSpeed}x${setupBest}`;
+
+      ui.songGrid.innerHTML = "";
+      SONGS.forEach((song, index) => {
+        const btn = document.createElement("button");
+        btn.className = "select-card" + (state.selectedSong === index ? " on" : "");
+        btn.type = "button";
+        btn.style.setProperty("--accent", song.accent);
+        const plan = songNotePlan(song, state.selectedDifficulty);
+        btn.innerHTML = `<div class="song-title">${song.title}</div><div class="song-sub">${song.sub}</div><div class="song-record">短音 ${plan.short} · 长音 ${plan.hold}<br>${writeHistoryText(song.id)}</div><div class="song-tags">${song.tags.map(tag => `<span class="tag">${tag}</span>`).join("")}</div>`;
+        btn.addEventListener("click", () => {
+          state.selectedSong = index;
+          renderSelectUI();
+          refreshMenuMusic(true);
+        });
+        ui.songGrid.appendChild(btn);
+      });
+
+      ui.difficultyGrid.innerHTML = "";
+      Object.keys(DIFFICULTIES).forEach(key => {
+        const diff = DIFFICULTIES[key];
+        const btn = document.createElement("button");
+        btn.className = "select-pill" + (state.selectedDifficulty === key ? " on" : "");
+        btn.type = "button";
+        btn.style.setProperty("--accent", SONGS[state.selectedSong].accent);
+        btn.innerHTML = `<span class="pill-main">${diff.title}</span><span class="pill-sub">${diff.sub}</span>`;
+        btn.addEventListener("click", () => {
+          state.selectedDifficulty = key;
+          renderSelectUI();
+        });
+        ui.difficultyGrid.appendChild(btn);
+      });
+
+      ui.speedGrid.innerHTML = "";
+      SPEEDS.forEach(item => {
+        const btn = document.createElement("button");
+        btn.className = "select-pill" + (state.selectedSpeed === item.value ? " on" : "");
+        btn.type = "button";
+        btn.style.setProperty("--accent", SONGS[state.selectedSong].accent);
+        btn.innerHTML = `<span class="pill-main">${item.label}</span><span class="pill-sub">${item.sub}</span>`;
+        btn.addEventListener("click", () => {
+          state.selectedSpeed = item.value;
+          renderSelectUI();
+          refreshMenuMusic(true);
+        });
+        ui.speedGrid.appendChild(btn);
+      });
+      ui.startBtn.textContent = state.selectedMode === "listen" ? "开始听歌" : "开始写歌";
+
+      ui.challengeSongGrid.innerHTML = "";
+      SONGS.forEach((song, index) => {
+        const btn = document.createElement("button");
+        btn.className = "select-card challenge-song-card";
+        btn.type = "button";
+        btn.style.setProperty("--accent", song.accent);
+        const bestStars = challengeBestStars(song.id);
+        btn.innerHTML = `<div class="song-title">${song.title}</div><div class="song-sub">六星闯关 · 六星后进入无尽冲刺</div><div class="song-record">${challengeHistoryText(song.id)}</div><div class="challenge-stars">${starHTML(bestStars)}</div>`;
+        btn.addEventListener("click", () => {
+          state.selectedMode = "challenge";
+          state.selectedSong = index;
+          state.selectedDifficulty = CHALLENGE.difficulty;
+          state.selectedSpeed = .5;
+          refreshMenuMusic(true);
+          beginCountdown();
+        });
+        ui.challengeSongGrid.appendChild(btn);
+      });
+    }
+
+    function beginCountdown() {
+      if (state.screen === "play" || state.screen === "countdown") return;
+      stopMenuMusic();
+      stopGameMusic();
+      const windows = judgeWindow();
+      const diff = DIFFICULTIES[state.selectedDifficulty];
+      const perfectSec = (windows.perfect / 1000).toFixed(2);
+      const greatSec = (windows.great / 1000).toFixed(2);
+      if (isChallengeMode()) {
+        ui.ruleTitle.textContent = `挑战闯关 · ${CHALLENGE.energy}颗爱心`;
+        ui.ruleLine.innerHTML = `按 <b>A / S / D</b> 或点击轨道。每过一段点亮1颗星，六星后进入无尽冲刺；歌曲完整循环，最高加速到 <b>12x</b>。`;
+      } else {
+        ui.ruleTitle.textContent = `${diff.title}小舞台 · ${diff.energy}颗爱心`;
+        ui.ruleLine.innerHTML = `小音符快碰到彩色线时按 <b>A / S / D</b>，也可以点击轨道。贴得特别准（约 ${perfectSec} 秒内）是 <b>PERFECT</b>，差一点也接住（约 ${greatSec} 秒内）是 <b>GREAT</b>；按错是 <b>WRONG</b>，太早太晚或没按是 <b>MISS</b>。`;
+      }
+      const run = ++countdownRun;
+      state.screen = "countdown";
+      state.running = false;
+      state.active = null;
+      ui.app.className = "counting";
+      ui.startScreen.classList.remove("active");
+      ui.endScreen.classList.remove("active");
+      ui.countdownScreen.classList.add("show");
+      ui.countdownSub.textContent = "GET READY";
+      const steps = ["3", "2", "1", "START"];
+      steps.forEach((label, index) => {
+        setTimeout(() => {
+          if (run !== countdownRun) return;
+          ui.countdownTitle.textContent = label;
+          ui.countdownTitle.style.animation = "none";
+          void ui.countdownTitle.offsetWidth;
+          ui.countdownTitle.style.animation = "cdPop .72s ease-out";
+          ui.countdownSub.textContent = label === "START" ? "MOD RUSH" : "GET READY";
+          pianoTone(label === "START" ? 880 : 520 + index * 90, .32, .1);
+        }, index * 760);
+      });
+      setTimeout(() => {
+        if (run !== countdownRun) return;
+        ui.countdownScreen.classList.remove("show");
+        startGame();
+      }, steps.length * 760 + 120);
+    }
+
+    function startChallengeGame() {
+      lastPromptSignature = "";
+      stopMenuMusic();
+      stopGameMusic();
+      const song = SONGS[state.selectedSong];
+      const firstStage = setChallengeStageFromLoop(0);
+      const firstStart = noteTravelMs(song, firstStage.speed) + 520;
+      const chartData = makeChallengeLoop(song, 0, firstStart, 0, 0, 0);
+      spriteWarmupRun++;
+      warmNoteSprites(chartData.chart);
+      Object.assign(state, {
+        screen: "play",
+        running: true,
+        paused: false,
+        score: 0,
+        combo: 0,
+        maxCombo: 0,
+        energy: CHALLENGE.energy,
+        noteIndex: 0,
+        totalNotes: chartData.chart.length,
+        correctHits: 0,
+        perfectHits: 0,
+        greatHits: 0,
+        missHits: 0,
+        wrongHits: 0,
+        mistakes: [],
+        songCursor: 0,
+        active: null,
+        activeNotes: [],
+        chart: chartData.chart,
+        musicEvents: chartData.musicEvents,
+        spawnCursor: 0,
+        gameTime: 0,
+        trackEndTime: Infinity,
+        nextTimer: 0,
+        roadOffset: 0,
+        judgeTimer: 0,
+        laneFlash: [-1, -1, -1],
+        laneHeld: [false, false, false],
+        particles: [],
+        stars: [],
+        shake: 0,
+        challengeStars: 0,
+        challengeLoop: 0,
+        challengeSegmentNotes: chartData.chart.length,
+        challengeSegmentHit: 0,
+        challengeNextStartTime: chartData.nextStartTime,
+        challengePatternIndex: chartData.nextIndex,
+        challengeMaxSpeed: firstStage.speed,
+        challengeStageIndex: firstStage.index,
+        challengeStageLabel: firstStage.label,
+      });
+      ui.app.className = "playing";
+      ui.startScreen.classList.remove("active");
+      ui.endScreen.classList.remove("active");
+      ui.countdownScreen.classList.remove("show");
+      ui.pauseScreen.classList.remove("show");
+      ui.pauseGameBtn.textContent = "暂停";
+      ui.judgePop.className = "judge-pop";
+      ui.lastJudge.textContent = "--";
+      ui.reviewBox.classList.remove("show");
+      ui.reviewList.innerHTML = "";
+      ui.songNow.textContent = `${song.title} · ${starString(0)} · ${firstStage.speedStart.toFixed(2)}x · ${DIFFICULTIES[firstStage.difficulty].title}`;
+      setQuestionPreview(
+        chartData.chart[0] && chartData.chart[0].challenge && chartData.chart[0].challenge.prompt || "READY",
+        chartData.chart[1] && chartData.chart[1].challenge && chartData.chart[1].challenge.prompt || "--"
+      );
+      ui.promptHint.textContent = `个人记录 ${challengeHistoryText(song.id)} · 音符贴近判定线时按 A / S / D`;
+      updateHUD();
+      startRealGameAudio(song);
+      sfx.start();
+    }
+
+    function startGame() {
+      lastPromptSignature = "";
+      if (isChallengeMode()) {
+        startChallengeGame();
+        return;
+      }
+      stopMenuMusic();
+      stopGameMusic();
+      const diff = DIFFICULTIES[state.selectedDifficulty];
+      const song = SONGS[state.selectedSong];
+      const pattern = MUSIC_PATTERNS[song.pattern] || MUSIC_PATTERNS.ode;
+      const chartData = makeChart(song, pattern);
+      const chart = chartData.chart;
+      const musicEvents = chartData.musicEvents;
+      spriteWarmupRun++;
+      warmNoteSprites(chart);
+      const lastNote = chart.reduce((latest, note) => !latest || note.hitTime > latest.hitTime ? note : latest, null);
+      const lastMusicEvent = musicEvents[musicEvents.length - 1];
+      const totalNotes = chart.length;
+      Object.assign(state, {
+        screen: "play",
+        running: true,
+        paused: false,
+        score: 0,
+        combo: 0,
+        maxCombo: 0,
+        energy: diff.energy,
+        noteIndex: 0,
+        totalNotes,
+        correctHits: 0,
+        perfectHits: 0,
+        greatHits: 0,
+        missHits: 0,
+        wrongHits: 0,
+        mistakes: [],
+        songCursor: 0,
+        active: null,
+        activeNotes: [],
+        chart,
+        musicEvents,
+        spawnCursor: 0,
+        gameTime: 0,
+        trackEndTime: lastMusicEvent ? lastMusicEvent.playTime + Math.max(eventSustainMs(lastMusicEvent), 820) + 720 : lastNote ? lastNote.hitTime + 720 : 0,
+        nextTimer: 0,
+        roadOffset: 0,
+        judgeTimer: 0,
+        laneFlash: [-1, -1, -1],
+        laneHeld: [false, false, false],
+        particles: [],
+        stars: [],
+        shake: 0,
+      });
+      ui.app.className = "playing";
+      ui.startScreen.classList.remove("active");
+      ui.endScreen.classList.remove("active");
+      ui.countdownScreen.classList.remove("show");
+      ui.pauseScreen.classList.remove("show");
+      ui.pauseGameBtn.textContent = "暂停";
+      ui.judgePop.className = "judge-pop";
+      ui.lastJudge.textContent = "--";
+      ui.reviewBox.classList.remove("show");
+      ui.reviewList.innerHTML = "";
+      const mode = MODES.find(item => item.id === state.selectedMode);
+      ui.songNow.textContent = `${song.title} · ${mode.title} · ${DIFFICULTIES[state.selectedDifficulty].title} · ${state.selectedSpeed}x`;
+      setQuestionPreview(
+        chart[0] && chart[0].challenge && chart[0].challenge.prompt || "READY",
+        chart[1] && chart[1].challenge && chart[1].challenge.prompt || "--"
+      );
+      ui.promptHint.textContent = state.selectedMode === "listen"
+        ? "听歌模式会自动踩线演奏"
+        : `个人记录 ${writeHistoryText(song.id)} · 音符贴近判定线时按 A / S / D`;
+      updateHUD();
+      startRealGameAudio(song);
+      sfx.start();
+    }
+
+    function returnToMenu() {
+      lastPromptSignature = "";
+      countdownRun++;
+      stopGameMusic();
+      state.screen = "start";
+      state.running = false;
+      state.paused = false;
+      state.active = null;
+      state.activeNotes = [];
+      state.chart = [];
+      state.musicEvents = [];
+      state.mistakes = [];
+      state.challengeStars = 0;
+      state.challengeLoop = 0;
+      state.challengeSegmentHit = 0;
+      state.challengeSegmentNotes = 0;
+      state.challengeStageIndex = 0;
+      state.challengeStageLabel = challengeStage(0).label;
+      spriteWarmupRun++;
+      state.laneHeld = [false, false, false];
+      state.laneFlash = [-1, -1, -1];
+      ui.app.className = "menuing";
+      ui.startScreen.classList.add("active");
+      ui.endScreen.classList.remove("active");
+      ui.countdownScreen.classList.remove("show");
+      ui.pauseScreen.classList.remove("show");
+      ui.pauseGameBtn.textContent = "暂停";
+      setQuestionPreview("选择歌曲开始", "--");
+      ui.promptHint.textContent = "写歌模式自己选，听歌模式自动帮忙";
+      renderSelectUI();
+      setMenuStep("mode");
+      startMenuMusic();
+    }
+
+    function pauseGame() {
+      if (state.screen !== "play" || !state.running || state.paused) return;
+      state.paused = true;
+      state.laneHeld = [false, false, false];
+      pauseRealGameAudio();
+      if (audioCtx && audioCtx.state === "running") audioCtx.suspend();
+      ui.pauseGameBtn.textContent = "继续";
+      ui.pauseScreen.classList.add("show");
+    }
+
+    function resumeGame() {
+      if (state.screen !== "play" || !state.running || !state.paused) return;
+      state.paused = false;
+      state.lastTs = performance.now();
+      ui.pauseGameBtn.textContent = "暂停";
+      ui.pauseScreen.classList.remove("show");
+      if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+      resumeRealGameAudio();
+    }
+
+    function togglePauseGame() {
+      if (state.paused) resumeGame();
+      else pauseGame();
+    }
+
+    function spawnGroup() {
+      const note = state.chart[state.spawnCursor];
+      if (!note) return;
+      state.activeNotes.push(note);
+      state.spawnCursor++;
+      updatePromptFromTarget();
+      updateHUD();
+    }
+
+    function hitLane(lane) {
+      if (state.screen !== "play" || !state.running) return;
+      state.laneHeld[lane] = true;
+      flashLane(lane);
+      if (isAutoPlayMode()) {
+        ui.promptHint.textContent = isChallengeMode() ? "挑战演示会自动踩准" : "听歌模式会自动踩准节奏";
+        return;
+      }
+      const active = currentJudgableNote();
+      if (!active) {
+        const missable = currentMissableNote();
+        if (missable) {
+          missable.selectedLane = lane;
+          judgeActive(missable, "MISS", lane, false, "没踩进 GREAT 范围");
+        } else {
+          ui.promptHint.textContent = "等音符落到判定线附近再按";
+        }
+        return;
+      }
+      const delta = state.gameTime - active.hitTime;
+      const rating = ratingForDelta(delta, active);
+      active.selectedLane = lane;
+      if (lane !== active.challenge.correctLane) {
+        judgeActive(active, "WRONG", lane, false);
+        return;
+      }
+      if (active.isHold) {
+        startHold(active, rating, lane);
+      } else {
+        judgeActive(active, rating, lane, true);
+      }
+    }
+
+    function releaseLane(lane) {
+      state.laneHeld[lane] = false;
+      if (state.screen !== "play" || !state.running) return;
+      const active = state.activeNotes.find(note => note.isHold && note.headJudged && !note.judged && note.selectedLane === lane);
+      if (!active || isAutoPlayMode()) return;
+      const windows = judgeWindow(active);
+      const tailDelta = state.gameTime - active.holdEndTime;
+      if (Math.abs(tailDelta) <= windows.great || tailDelta > windows.great) {
+        const tailRating = Math.abs(tailDelta) <= windows.perfect ? "PERFECT" : "GREAT";
+        const finalRating = active.headRating === "GREAT" ? "GREAT" : tailRating;
+        judgeActive(active, finalRating, lane, true, "长音能量接满了");
+      } else {
+        judgeActive(active, "MISS", lane, false, "长音松开太早了");
+      }
+    }
+
+    function judgeWindow(note = null) {
+      return JUDGE_WINDOWS[note && note.difficulty || state.selectedDifficulty] || JUDGE_WINDOWS.easy;
+    }
+
+    function ratingForDelta(delta, note = null) {
+      return Math.abs(delta) <= judgeWindow(note).perfect ? "PERFECT" : "GREAT";
+    }
+
+    function correctOption(note) {
+      return note.challenge.options[note.challenge.correctLane];
+    }
+
+    function replaceEvery(value, search, replacement) {
+      return String(value).split(search).join(replacement);
+    }
+
+    function escapeHTML(value) {
+      let escaped = String(value);
+      escaped = replaceEvery(escaped, "&", "&amp;");
+      escaped = replaceEvery(escaped, "<", "&lt;");
+      escaped = replaceEvery(escaped, ">", "&gt;");
+      return replaceEvery(escaped, '"', "&quot;");
+    }
+
+    function recordMistake(note, rating, lane) {
+      if (!(state.selectedMode === "write" || isChallengeMode()) || state.mistakes.length >= REVIEW_LIMIT) return;
+      const answer = ["A", "S", "D"][note.challenge.correctLane];
+      const selected = lane === null || lane === undefined ? "未按" : ["A", "S", "D"][lane];
+      const option = correctOption(note);
+      state.mistakes.push({
+        rating,
+        prompt: note.challenge.prompt,
+        correct: option.text,
+        lane: answer,
+        selected,
+        reason: option.reason || note.challenge.reason,
+      });
+    }
+
+    function maxPossibleScore() {
+      let total = 0;
+      for (let i = 0; i < state.totalNotes; i++) {
+        const noteMultiplier = state.chart[i] && state.chart[i].isHold ? 2 : 1;
+        total += (SCORE_VALUES.PERFECT + i * COMBO_BONUS) * state.selectedSpeed * noteMultiplier;
+      }
+      return Math.max(1, Math.round(total));
+    }
+
+    function scoringSpeed(note) {
+      return isChallengeMode() ? (note && note.speed || state.selectedSpeed || 1) : state.selectedSpeed;
+    }
+
+    function scoreRange(maxScore, minRatio, nextRatio) {
+      const scoreBoundary = ratio => Math.ceil(maxScore * ratio - 1e-9);
+      const min = minRatio <= 0 ? 0 : scoreBoundary(minRatio);
+      const max = nextRatio === null
+        ? maxScore
+        : Math.max(min, scoreBoundary(nextRatio) - 1);
+      return { min, max };
+    }
+
+    function formatScoreRange(range) {
+      return `${range.min.toLocaleString("zh-CN")}–${range.max.toLocaleString("zh-CN")} 分`;
+    }
+
+    function resultRank(reason) {
+      if (isChallengeMode()) return { grade: starString(state.challengeStars), beat: `${state.challengeMaxSpeed.toFixed(2)}x`, gradeRange: "", beatRange: "", scale: "" };
+      if (state.selectedMode !== "write") return { grade: "AUTO", beat: "--", gradeRange: "", beatRange: "", scale: "" };
+      const maxScore = maxPossibleScore();
+      const ratio = clamp(state.score / maxScore, 0, 1);
+      let gradeBand = WRITE_GRADE_BANDS[0];
+      for (const band of WRITE_GRADE_BANDS) {
+        if (ratio >= band.minRatio) gradeBand = band;
+      }
+      const beatPercent = ratio >= 1 ? 100 : Math.floor(ratio * 100 + 1e-9);
+      const beatScoreRange = scoreRange(maxScore, beatPercent / 100, beatPercent >= 100 ? null : (beatPercent + 1) / 100);
+      const gradeScoreRange = scoreRange(maxScore, gradeBand.minRatio, gradeBand.nextRatio);
+      const gradeScale = WRITE_GRADE_BANDS.map(band =>
+        `${band.grade} ${formatScoreRange(scoreRange(maxScore, band.minRatio, band.nextRatio))}`
+      ).join("　");
+      return {
+        grade: gradeBand.grade,
+        beat: `超过${beatPercent}%的人`,
+        gradeRange: formatScoreRange(gradeScoreRange),
+        beatRange: formatScoreRange(beatScoreRange),
+        scale: `本局满分 ${maxScore.toLocaleString("zh-CN")} 分　评级分数线：${gradeScale}`,
+      };
+    }
+
+    function currentJudgableNote() {
+      const live = state.activeNotes
+        .filter(note => !note.judged && !note.headJudged && Math.abs(note.hitTime - state.gameTime) <= judgeWindow(note).great);
+      if (!live.length) return null;
+      live.sort((a, b) => Math.abs(a.hitTime - state.gameTime) - Math.abs(b.hitTime - state.gameTime));
+      return live[0];
+    }
+
+    function currentMissableNote() {
+      const live = state.activeNotes
+        .filter(note => {
+          if (note.judged || note.headJudged) return false;
+          const delta = Math.abs(note.hitTime - state.gameTime);
+          const windows = judgeWindow(note);
+          return delta > windows.great && delta <= windows.great + 360;
+        });
+      if (!live.length) return null;
+      live.sort((a, b) => Math.abs(a.hitTime - state.gameTime) - Math.abs(b.hitTime - state.gameTime));
+      return live[0];
+    }
+
+    function startHold(active, rating, lane, auto = false) {
+      active.headJudged = true;
+      active.selectedLane = lane;
+      active.headRating = rating;
+      active.holdStartTime = state.gameTime;
+      active.y = view.hitY;
+      state.laneHeld[lane] = true;
+      flashLane(lane);
+      showJudge(rating, auto ? "长音开始，自动按住啦" : "长音开始，按住攒满能量", rating.toLowerCase());
+      spawnBurst(view.lanes[lane], view.hitY, SONGS[state.selectedSong].accent, rating === "PERFECT" ? 18 : 12);
+    }
+
+    function judgeActive(active, rating, lane, success, customSub = "") {
+      if (!active || active.judged) return;
+      active.judged = true;
+      active.headJudged = true;
+      active.fade = 420;
+      const correctLane = active.challenge.correctLane;
+      const fxLane = lane === null ? correctLane : lane;
+      if (lane !== null) flashLane(lane);
+      if (active.isHold && isAutoPlayMode() && active.selectedLane !== null) {
+        state.laneHeld[active.selectedLane] = false;
+      }
+
+      if (success) {
+        const isPerfect = rating === "PERFECT";
+        const base = SCORE_VALUES[rating] || SCORE_VALUES.GREAT;
+        const noteMultiplier = active.isHold ? 2 : 1;
+        const addScore = Math.round((base + state.combo * COMBO_BONUS) * scoringSpeed(active) * noteMultiplier);
+        state.score += addScore;
+        state.combo++;
+        state.maxCombo = Math.max(state.maxCombo, state.combo);
+        state.correctHits++;
+        if (isPerfect) state.perfectHits++;
+        else state.greatHits++;
+        const sub = customSub || (isAutoPlayMode() ? "AUTO · 正确音符已接住" : `+${addScore}  COMBO ${state.combo}`);
+        showJudge(rating, sub, rating.toLowerCase());
+        spawnBurst(view.lanes[fxLane], view.hitY, isPerfect ? SONGS[state.selectedSong].accent : "#4ee6a8", isPerfect ? 36 : 26);
+      } else {
+        state.combo = 0;
+        state.energy = Math.max(0, state.energy - 1);
+        state.shake = rating === "WRONG" ? 10 : 6;
+        if (rating === "WRONG") state.wrongHits++;
+        if (rating === "MISS") state.missHits++;
+        recordMistake(active, rating, lane);
+        const answer = ["A", "S", "D"][correctLane];
+        const sub = customSub || (rating === "MISS" ? `MISS · 正确轨道 ${answer}` : `WRONG · 正确轨道 ${answer}`);
+        showJudge(rating, sub, rating.toLowerCase());
+        if (rating === "WRONG") sfx.wrongPulse();
+        spawnBurst(view.lanes[fxLane], view.hitY, rating === "WRONG" ? "#f65b5b" : "#f8d84a", 22);
+        if (state.energy <= 0) active.endGameAfterFade = true;
+      }
+      state.noteIndex++;
+      if (isChallengeMode()) {
+        state.challengeSegmentHit++;
+        state.challengeMaxSpeed = Math.max(state.challengeMaxSpeed, active.speed || state.selectedSpeed);
+        saveChallengeSpeed(SONGS[state.selectedSong].id, state.challengeMaxSpeed, active.difficulty);
+        handleChallengeLoopEnd(active);
+      }
+      ui.lastJudge.textContent = rating;
+      updateHUD();
+      updatePromptFromTarget();
+    }
+
+    function showJudge(title, sub, kind) {
+      ui.judgeTitle.textContent = title;
+      ui.judgeSub.textContent = sub;
+      ui.judgePop.className = `judge-pop show ${kind}`;
+      state.judgeTimer = 720;
+    }
+
+    function flashLane(lane) {
+      state.laneFlash[lane] = 180;
+      laneButtons.forEach((btn, idx) => btn.classList.toggle("flash", idx === lane));
+      setTimeout(() => laneButtons.forEach(btn => btn.classList.remove("flash")), 140);
+    }
+
+    function finishGame(reason = "complete") {
+      stopGameMusic();
+      state.screen = "end";
+      state.running = false;
+      state.active = null;
+      state.activeNotes = [];
+      ui.app.className = "resulting";
+      const rank = resultRank(reason);
+      if (state.selectedMode === "write") {
+        const maxScore = maxPossibleScore();
+        saveWriteScore(SONGS[state.selectedSong].id, state.selectedDifficulty, state.selectedSpeed, state.score);
+        saveWriteSongHistory(SONGS[state.selectedSong].id, state.selectedDifficulty, state.selectedSpeed, state.score, maxScore);
+      }
+      if (isChallengeMode()) {
+        saveChallengeStars(SONGS[state.selectedSong].id, state.challengeStars);
+        saveChallengeSpeed(SONGS[state.selectedSong].id, state.challengeMaxSpeed, state.selectedDifficulty);
+        flushChallengeHistory();
+      }
+      const totalJudged = state.correctHits + state.missHits + state.wrongHits;
+      const accuracy = totalJudged ? Math.round(state.correctHits / totalJudged * 100) : 0;
+      const showWriteRank = state.selectedMode === "write";
+      ui.gradeScoreBox.classList.toggle("is-hidden", !showWriteRank);
+      ui.beatScoreBox.classList.toggle("is-hidden", !showWriteRank);
+      ui.scoreGrid.classList.toggle("compact", !showWriteRank);
+      ui.endTitle.innerHTML = reason === "empty"
+        ? isChallengeMode()
+          ? "<span>CHALLENGE</span> · 闯关结束"
+          : "<span>GAME OVER</span> · 血量用完"
+        : state.selectedMode === "listen"
+          ? "<span>AUTO</span> · 听歌完成"
+          : "<span>RESULT</span> · 演奏完成";
+      ui.endScore.textContent = state.score;
+      ui.endGrade.textContent = rank.grade;
+      ui.endGradeRange.textContent = rank.gradeRange;
+      ui.endBeat.textContent = rank.beat;
+      ui.endBeatRange.textContent = rank.beatRange;
+      ui.resultScale.textContent = rank.scale;
+      ui.resultScale.classList.toggle("show", Boolean(rank.scale));
+      ui.endCombo.textContent = state.maxCombo;
+      ui.endJudges.textContent = `${state.perfectHits}/${state.greatHits}/${state.missHits}/${state.wrongHits}`;
+      ui.endAccuracy.textContent = `${accuracy}%`;
+      ui.best.textContent = isChallengeMode()
+        ? challengeBestLabel(SONGS[state.selectedSong].id)
+        : state.selectedMode === "write"
+          ? writeBestLabel(SONGS[state.selectedSong].id)
+          : "不计榜";
+      if (state.mistakes.length) {
+        ui.reviewTitle.textContent = reason === "empty" ? "先复习这几颗音符" : "这几题再看一眼";
+        ui.reviewList.innerHTML = state.mistakes.slice(0, REVIEW_LIMIT).map((item, idx) =>
+          `<div class="review-item ${item.rating === "MISS" ? "miss" : "wrong"}"><div class="review-meta"><b>${idx + 1}. ${escapeHTML(item.rating)}</b><em>${item.selected === "未按" ? "没有按到" : `你按了 ${escapeHTML(item.selected)}`} · 正确轨道 ${escapeHTML(item.lane)}</em></div><div class="review-eq">${escapeHTML(item.prompt)}  →  ${escapeHTML(item.correct)}</div><span>${escapeHTML(item.reason)}</span></div>`
+        ).join("");
+      } else {
+        ui.reviewTitle.textContent = "本局复盘";
+        ui.reviewList.innerHTML = isChallengeMode()
+          ? `<div class="review-item good">${state.challengeStars >= CHALLENGE.starLoops ? "六星达成，无尽冲刺已经开启" : "这次闯关结束"}，已经拿到 ${starString(state.challengeStars)}，最高速度 ${state.challengeMaxSpeed.toFixed(2)}x。</div>`
+          : state.selectedMode === "listen"
+          ? `<div class="review-item good">听歌模式已经自动踩准全部音符，可以切到写歌模式自己挑战。</div>`
+          : `<div class="review-item good">太稳了，本局没有错题，所有取模音符都接住了。</div>`;
+      }
+      ui.reviewBox.classList.add("show");
+      ui.endComment.textContent = isChallengeMode()
+        ? state.challengeStars >= CHALLENGE.starLoops
+          ? `无尽冲刺啦！六颗星已经全部点亮，当前最高速度 ${state.challengeMaxSpeed.toFixed(2)}x。`
+          : `本次挑战拿到 ${starString(state.challengeStars)}，最高速度 ${state.challengeMaxSpeed.toFixed(2)}x。再试一次，向六星出发！`
+        : reason === "empty"
+        ? "血量用完了，这一轮先停下。看一下正确式子，再用 0.5x 练一遍会更稳。"
+        : state.selectedMode === "listen"
+          ? "听歌模式自动完成了整首旋律，可以回到写歌模式自己试一遍。"
+          : accuracy >= 90
+            ? "这首歌已经被你弹成取模旋律了，PERFECT 感很足。"
+            : accuracy >= 70
+              ? "节奏已经起来了，下一次可以试试更高倍速或更高难度。"
+              : "先用 0.5x 慢速练读题，再逐步提速会更稳。";
+      ui.endScreen.classList.add("active");
+      if (reason === "empty") sfx.empty();
+      else sfx.finish();
+    }
+
+    function updateHUD() {
+      ui.score.textContent = state.score;
+      ui.combo.textContent = state.combo;
+      if (isChallengeMode()) {
+        ui.progress.textContent = `${Math.min(state.challengeSegmentHit, state.challengeSegmentNotes)}/${state.challengeSegmentNotes}`;
+        ui.songNow.textContent = `${SONGS[state.selectedSong].title} · ${starString(state.challengeStars)} · ${challengeStatusLabel()}`;
+      } else {
+        ui.progress.textContent = `${Math.min(state.noteIndex, state.totalNotes)}/${state.totalNotes}`;
+      }
+      const maxHealth = isChallengeMode() ? CHALLENGE.energy : DIFFICULTIES[state.selectedDifficulty].energy;
+      ui.energy.textContent = `${Math.max(0, state.energy)}/${maxHealth}`;
+      if (ui.energyBar) {
+        const cells = Array.from(ui.energyBar.children || []);
+        if (cells.length !== maxHealth) {
+          ui.energyBar.innerHTML = Array.from({ length: maxHealth }, () => `<span class="energy-cell"></span>`).join("");
+        }
+        Array.from(ui.energyBar.children || []).forEach((cell, idx) => {
+          const on = idx < Math.max(0, state.energy);
+          cell.classList.toggle("on", on);
+          cell.classList.toggle("danger", state.energy <= 2);
+        });
+      }
+      ui.best.textContent = isChallengeMode()
+        ? challengeBestLabel(SONGS[state.selectedSong].id)
+        : state.selectedMode === "write"
+          ? writeBestLabel(SONGS[state.selectedSong].id)
+          : "不计榜";
+    }
+
+    function updateChallengeLiveHUD() {
+      if (!isChallengeMode() || state.screen !== "play" || !state.running) return;
+      const text = `${SONGS[state.selectedSong].title} · ${starString(state.challengeStars)} · ${challengeStatusLabel()}`;
+      if (ui.songNow.textContent !== text) ui.songNow.textContent = text;
+    }
+
+    function updateAmbientStars(dt, song) {
+      let writeIndex = 0;
+      for (let index = 0; index < state.stars.length; index++) {
+        const star = state.stars[index];
+        star.y += star.vy * dt;
+        star.spin += dt * 2.6;
+        star.life -= dt;
+        if (star.life > 0 && star.y < view.h + 16) state.stars[writeIndex++] = star;
+      }
+      state.stars.length = writeIndex;
+      const spawnChance = 1 - Math.exp(-4.8 * dt);
+      if (state.stars.length < 28 && Math.random() < spawnChance) {
+        state.stars.push({
+          x: Math.random() * view.w,
+          y: -10,
+          vy: 20 + Math.random() * 34,
+          life: 5,
+          spin: Math.random() * 6,
+          color: Math.random() > .5 ? song.accent : "#f8d84a",
+        });
+      }
+    }
+
+    function update(dt, gameDt = dt) {
+      const song = SONGS[state.selectedSong];
+      updateAmbientStars(dt, song);
+      if (state.screen === "play" && state.paused) return;
+      state.roadOffset += gameDt * (80 + state.selectedSpeed * 60);
+      if (state.judgeTimer > 0) {
+        state.judgeTimer = Math.max(0, state.judgeTimer - dt * 1000);
+        if (state.judgeTimer <= 0) ui.judgePop.classList.remove("show");
+      }
+      state.shake = Math.max(0, state.shake - dt * 28);
+      for (let i = 0; i < 3; i++) state.laneFlash[i] = Math.max(-1, state.laneFlash[i] - dt * 1000);
+
+      if (state.screen === "play" && state.running) {
+        state.gameTime += gameDt * 1000;
+        while (state.songCursor < state.musicEvents.length && state.musicEvents[state.songCursor].playTime <= state.gameTime) {
+          const event = state.musicEvents[state.songCursor];
+          if (isChallengeMode()) setChallengeStageFromEvent(event);
+          if (!gameAudioActive) {
+            playSongStep(event.musicStep, event.note && event.note.isHold ? .112 : .105, 0, true, eventSustainMs(event), !!(event.note && event.note.isHold));
+          }
+          state.songCursor++;
+        }
+        syncChallengeAudioSpeed();
+        while (state.spawnCursor < state.chart.length && state.chart[state.spawnCursor].spawnTime <= state.gameTime) {
+          spawnGroup();
+        }
+        challengeHudElapsed += gameDt;
+        if (challengeHudElapsed >= .1) {
+          challengeHudElapsed = 0;
+          updateChallengeLiveHUD();
+        }
+
+        const startY = view.spawnY - 150;
+        let shouldEndEmpty = false;
+        for (const note of state.activeNotes) {
+          if (!note.judged) {
+            const windows = judgeWindow(note);
+            if (!note.headJudged) {
+              const p = clamp((state.gameTime - note.spawnTime) / note.travelMs, 0, 1);
+              note.y = startY + (view.hitY - startY) * p;
+              if (isAutoPlayMode() && state.gameTime >= note.hitTime) {
+                const lane = note.challenge.correctLane;
+                if (note.isHold) startHold(note, "PERFECT", lane, true);
+                else judgeActive(note, "PERFECT", lane, true);
+              } else if (state.gameTime > note.hitTime + windows.great) {
+                judgeActive(note, "MISS", null, false);
+              }
+            } else if (note.isHold) {
+              note.y = view.hitY;
+              const lane = note.selectedLane;
+              if (state.gameTime >= note.holdEndTime) {
+                if (isAutoPlayMode() || state.laneHeld[lane]) {
+                  judgeActive(note, note.headRating || "PERFECT", lane, true, "长音能量啪一下满啦");
+                } else {
+                  judgeActive(note, "MISS", lane, false, "长音还没攒满");
+                }
+              }
+            }
+          } else {
+            note.fade -= dt * 1000;
+            if (note.fade <= 0 && note.endGameAfterFade && state.gameTime >= note.hitTime + 260) shouldEndEmpty = true;
+          }
+        }
+        let activeWriteIndex = 0;
+        for (let index = 0; index < state.activeNotes.length; index++) {
+          const note = state.activeNotes[index];
+          if (!note.judged || note.fade > 0) state.activeNotes[activeWriteIndex++] = note;
+        }
+        state.activeNotes.length = activeWriteIndex;
+        if (shouldEndEmpty) finishGame("empty");
+        else if (!isChallengeMode() && state.noteIndex >= state.totalNotes && state.activeNotes.length === 0 && state.gameTime >= state.trackEndTime) finishGame("complete");
+      }
+
+      let particleWriteIndex = 0;
+      for (let index = 0; index < state.particles.length; index++) {
+        const p = state.particles[index];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vy += 420 * dt;
+        p.life -= dt;
+        if (p.life > 0) state.particles[particleWriteIndex++] = p;
+      }
+      state.particles.length = particleWriteIndex;
+    }
+
+    function spawnBurst(x, y, color, count) {
+      const available = Math.max(0, MAX_PARTICLES - state.particles.length);
+      const actualCount = Math.min(count, available);
+      for (let i = 0; i < actualCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const sp = 70 + Math.random() * 220;
+        state.particles.push({
+          x, y,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          life: .55 + Math.random() * .45,
+          r: 2 + Math.random() * 4,
+          color,
+        });
+      }
+    }
+
+    function spawnStarShower(count) {
+      const song = SONGS[state.selectedSong];
+      for (let i = 0; i < count; i++) {
+        state.stars.push({
+          x: view.w * (.18 + Math.random() * .64),
+          y: view.h * (.12 + Math.random() * .18),
+          vy: 34 + Math.random() * 78,
+          life: 1.8 + Math.random() * 1.2,
+          spin: Math.random() * 6,
+          color: i % 3 === 0 ? "#f8d84a" : song.accent,
+        });
+      }
+    }
+
+    function draw() {
+      const sx = state.shake ? (Math.random() - .5) * state.shake : 0;
+      const sy = state.shake ? (Math.random() - .5) * state.shake : 0;
+      ctx.save();
+      ctx.translate(sx, sy);
+      drawBackground();
+      if (state.screen !== "start") {
+        drawLanes();
+        drawActiveGroup();
+        drawParticles();
+      }
+      ctx.restore();
+      drawVignette();
+      if (state.screen !== "start") {
+        ctx.save();
+        ctx.translate(sx, sy);
+        drawReceptors();
+        ctx.restore();
+      }
+    }
+
+    function renderBackdrop(song) {
+      if (backdropSongIndex === state.selectedSong && Number.isFinite(backdropLastRender)) return;
+      backdropSongIndex = state.selectedSong;
+      backdropLastRender = performance.now();
+      backdropCtx.clearRect(0, 0, view.w, view.h);
+      const bg = backdropCtx.createLinearGradient(0, 0, 0, view.h);
+      bg.addColorStop(0, song.dark);
+      bg.addColorStop(.5, "#1c1d22");
+      bg.addColorStop(1, "#111412");
+      backdropCtx.fillStyle = bg;
+      backdropCtx.fillRect(0, 0, view.w, view.h);
+    }
+
+    function drawBackground() {
+      const song = SONGS[state.selectedSong];
+      renderBackdrop(song);
+      ctx.drawImage(backdropLayer, 0, 0, view.w, view.h);
+
+      ctx.save();
+      for (let i = 0; i < 120; i++) {
+        const layer = i % 3;
+        const drift = state.roadOffset * (.05 + layer * .035);
+        const x = (i * 127.1 + drift) % (view.w + 80) - 40;
+        const y = (i * 73.7 + layer * 43) % Math.max(120, view.h);
+        const twinkle = .45 + .35 * Math.sin(state.roadOffset * .018 + i * 1.9);
+        const r = layer === 0 ? .8 : layer === 1 ? 1.35 : 2.1;
+        ctx.globalAlpha = Math.max(.16, Math.min(.78, twinkle));
+        ctx.fillStyle = i % 9 === 0 ? song.accent : "#f7f4e9";
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      for (const star of state.stars) {
+        ctx.save();
+        ctx.translate(star.x, star.y);
+        ctx.rotate(star.spin);
+        ctx.fillStyle = star.color;
+        ctx.globalAlpha = Math.max(0, Math.min(1, star.life / 2));
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const r = i % 2 === 0 ? 5 : 2.2;
+          const a = i * Math.PI / 5;
+          const x = Math.cos(a) * r;
+          const y = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.globalAlpha = .18;
+      const staffTop = Math.max(82, view.h * .14);
+      for (let group = 0; group < 4; group++) {
+        const baseY = staffTop + group * 112 + (state.roadOffset * .08 % 28);
+        for (let line = 0; line < 5; line++) {
+          const y = baseY + line * 8;
+          if (y > view.h - 96) continue;
+          ctx.strokeStyle = line === 2 ? song.accent : "rgba(247,244,233,.38)";
+          ctx.lineWidth = line === 2 ? 1.3 : .8;
+          ctx.beginPath();
+          ctx.moveTo(view.w * .08, y);
+          ctx.lineTo(view.w * .92, y);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = .18;
+      for (let i = 0; i < 16; i++) {
+        const x = (i * 151 + state.roadOffset * .18) % (view.w + 180) - 90;
+        const y = 80 + (i * 91) % Math.max(140, view.h - 240);
+        ctx.strokeStyle = i % 2 ? song.accent : "#f8d84a";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, y, 15 + (i % 5) * 8, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+    }
+
+    function drawLanes() {
+      const top = Math.max(86, view.h * .15);
+      const bottom = view.hitY + 92;
+      const song = SONGS[state.selectedSong];
+      ctx.save();
+      ctx.fillStyle = laneStageGradient;
+      roundRect(view.w * .06, top - 10, view.w * .88, bottom - top + 40, 8);
+      ctx.fill();
+      ctx.restore();
+      for (let i = 0; i < 3; i++) {
+        const cx = view.lanes[i];
+        const x = cx - view.laneW / 2;
+        const laneActive = state.laneHeld[i] || state.laneFlash[i] > 0;
+        ctx.fillStyle = laneFillGradients[laneActive ? 1 : 0][i];
+        roundRect(x, top, view.laneW, bottom - top, 8);
+        ctx.fill();
+        ctx.strokeStyle = laneActive ? song.accent : "rgba(247,244,233,.14)";
+        ctx.lineWidth = laneActive ? 3 : 1;
+        roundRect(x, top, view.laneW, bottom - top, 8);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.globalAlpha = laneActive ? .32 : .16;
+        ctx.strokeStyle = laneActive ? song.accent : "rgba(247,244,233,.42)";
+        ctx.lineWidth = 1;
+        const markerStart = top + ((state.roadOffset * .42 + i * 31) % 74);
+        for (let y = markerStart; y < bottom - 18; y += 74) {
+          ctx.beginPath();
+          ctx.moveTo(x + 18, y);
+          ctx.lineTo(x + view.laneW - 18, y);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = "rgba(247,244,233,.14)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([16, 18]);
+        ctx.lineDashOffset = -state.roadOffset * .25;
+        ctx.beginPath();
+        ctx.moveTo(cx, top + 12);
+        ctx.lineTo(cx, bottom - 12);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.strokeStyle = song.accent;
+      ctx.lineWidth = 4;
+      ctx.shadowColor = song.accent;
+      ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.moveTo(view.w * .08, view.hitY);
+      ctx.lineTo(view.w * .92, view.hitY);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+    }
+
+    function drawReceptors() {
+      for (let index = 0; index < 3; index++) drawReceptor(view.lanes[index], view.hitY + 34);
+    }
+
+    function createSpriteSurface(width, height) {
+      const scale = Math.max(.75, view.dpr || 1);
+      const spriteCanvas = document.createElement("canvas");
+      spriteCanvas.width = Math.max(1, Math.ceil(width * scale));
+      spriteCanvas.height = Math.max(1, Math.ceil(height * scale));
+      const spriteCtx = spriteCanvas.getContext("2d");
+      spriteCtx.setTransform(scale, 0, 0, scale, 0, 0);
+      return { canvas: spriteCanvas, ctx: spriteCtx, width, height };
+    }
+
+    function roundRectOn(target, x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      target.beginPath();
+      target.moveTo(x + rr, y);
+      target.arcTo(x + w, y, x + w, y + h, rr);
+      target.arcTo(x + w, y + h, x, y + h, rr);
+      target.arcTo(x, y + h, x, y, rr);
+      target.arcTo(x, y, x + w, y, rr);
+      target.closePath();
+    }
+
+    function rememberSprite(cache, key, sprite, limit) {
+      if (cache.size >= limit && !cache.has(key)) {
+        const oldest = cache.keys().next();
+        if (!oldest.done) cache.delete(oldest.value);
+      }
+      cache.set(key, sprite);
+      return sprite;
+    }
+
+    function getReceptorSprite() {
+      if (receptorSprite) return receptorSprite;
+      const surface = createSpriteSurface(96, 72);
+      const spriteCtx = surface.ctx;
+      spriteCtx.translate(48, 36);
+      spriteCtx.globalAlpha = 1;
+      spriteCtx.globalCompositeOperation = "source-over";
+      spriteCtx.filter = "brightness(1)";
+      spriteCtx.shadowColor = "#f8d84a";
+      spriteCtx.shadowBlur = 20;
+      spriteCtx.fillStyle = "#f8d84a";
+      roundRectOn(spriteCtx, -27, -11, 54, 22, 8);
+      spriteCtx.fill();
+      spriteCtx.shadowBlur = 0;
+      spriteCtx.fillStyle = "#151515";
+      roundRectOn(spriteCtx, -18, -6, 36, 12, 6);
+      spriteCtx.fill();
+      spriteCtx.fillStyle = "#f7f4e9";
+      spriteCtx.font = "bold 14px Consolas, 'Courier New', monospace";
+      spriteCtx.textAlign = "center";
+      spriteCtx.textBaseline = "middle";
+      spriteCtx.fillText("%", 0, 0);
+      receptorSprite = surface;
+      return receptorSprite;
+    }
+
+    function drawReceptor(cx, cy, key) {
+      const sprite = getReceptorSprite();
+      ctx.drawImage(sprite.canvas, cx - sprite.width / 2, cy - sprite.height / 2, sprite.width, sprite.height);
+    }
+
+    function drawActiveGroup() {
+      if (!state.activeNotes.length) return;
+      for (let index = state.activeNotes.length - 1; index >= 0; index--) {
+        const active = state.activeNotes[index];
+        if (active.isHold && active.headJudged && active.selectedLane !== null) {
+          const lane = active.selectedLane;
+          const option = active.challenge.options[lane];
+          const selectedColor = option.color;
+          drawNoteCard(view.lanes[lane], active.y, view.noteW, view.w < 720 ? 90 : 100, selectedColor, option.text, active, lane);
+          continue;
+        }
+        for (let lane = 0; lane < active.challenge.options.length; lane++) {
+          const option = active.challenge.options[lane];
+          const selectedColor = option.color;
+          drawNoteCard(view.lanes[lane], active.y, view.noteW, view.w < 720 ? 90 : 100, selectedColor, option.text, active, lane);
+        }
+      }
+    }
+
+    function noteFrameTone(color) {
+      const key = String(color || "").toLowerCase();
+      return NOTE_FRAME_TONES[key] || color || "#9cecff";
+    }
+
+    function drawTinyStar(cx, cy, radius, color, alpha = 1) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(state.gameTime * .003 + cx * .01);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const r = i % 2 === 0 ? radius : radius * .42;
+        const a = -Math.PI / 2 + i * Math.PI / 4;
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawHoldPulseTail(x, y, w, h, color, note, lane) {
+      if (!note.isHold) return;
+      const selected = lane === note.selectedLane;
+      const held = selected && state.laneHeld[lane];
+      const finished = note.judged && selected;
+      const pulse = .5 + .5 * Math.sin(state.gameTime * .024);
+      const rawProgress = note.headJudged
+        ? (state.gameTime - note.holdStartTime) / Math.max(1, note.holdMs)
+        : 0;
+      const progress = finished ? 1 : clamp(rawProgress, 0, 1);
+      const frame = noteFrameTone(color);
+      const speed = Math.max(.5, note.speed || state.selectedSpeed || 1);
+      const tailScale = 1 / Math.pow(speed / .5, .24);
+      const tailMin = clamp(56 * tailScale, 34, 56);
+      const tailMax = clamp(88 * tailScale, 48, 88);
+      const tailLen = Math.min(tailMax, Math.max(tailMin, note.holdMs / 24));
+      const tailW = Math.min(78, Math.max(52, w * .38));
+      const tailX = x + w / 2 - tailW / 2;
+      const tailBottom = y - 8;
+      const tailTop = tailBottom - tailLen;
+      const coreX = x + w / 2;
+      ctx.save();
+      ctx.shadowColor = held || finished ? "#f8d84a" : frame;
+      ctx.shadowBlur = held || finished ? 18 + pulse * 12 : 8;
+
+      const shell = ctx.createLinearGradient(coreX, tailTop, coreX, tailBottom);
+      shell.addColorStop(0, "rgba(247,244,233,0)");
+      shell.addColorStop(.35, "rgba(247,244,233,.08)");
+      shell.addColorStop(1, "rgba(247,244,233,.16)");
+      ctx.fillStyle = shell;
+      ctx.beginPath();
+      ctx.moveTo(coreX, tailTop);
+      ctx.bezierCurveTo(tailX + tailW * .16, tailTop + tailLen * .34, tailX + 3, tailBottom - 14, tailX + 8, tailBottom);
+      ctx.lineTo(tailX + tailW - 8, tailBottom);
+      ctx.bezierCurveTo(tailX + tailW - 3, tailBottom - 14, tailX + tailW * .84, tailTop + tailLen * .34, coreX, tailTop);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.globalAlpha = held || finished ? .72 : .34;
+      ctx.strokeStyle = frame;
+      ctx.lineWidth = held || finished ? 2.2 : 1.4;
+      ctx.beginPath();
+      ctx.moveTo(coreX - tailW * .34, tailBottom);
+      ctx.quadraticCurveTo(coreX - tailW * .16, tailTop + tailLen * .45, coreX - 2, tailTop + 4);
+      ctx.moveTo(coreX + tailW * .34, tailBottom);
+      ctx.quadraticCurveTo(coreX + tailW * .16, tailTop + tailLen * .45, coreX + 2, tailTop + 4);
+      ctx.stroke();
+
+      const fillH = Math.max(held ? 8 : 0, tailLen * progress);
+      if (fillH > 0) {
+        const fillY = tailBottom - fillH;
+        const g = ctx.createLinearGradient(tailX, fillY, tailX, tailBottom);
+        g.addColorStop(0, "rgba(248,216,74,.26)");
+        g.addColorStop(.55, frame);
+        g.addColorStop(1, "#4ee6a8");
+        ctx.fillStyle = g;
+        ctx.globalAlpha = held || finished ? .9 : .38;
+        ctx.beginPath();
+        ctx.moveTo(coreX, Math.max(tailTop, fillY));
+        ctx.bezierCurveTo(tailX + tailW * .24, fillY + fillH * .34, tailX + 7, tailBottom - 10, tailX + 12, tailBottom);
+        ctx.lineTo(tailX + tailW - 12, tailBottom);
+        ctx.bezierCurveTo(tailX + tailW - 7, tailBottom - 10, tailX + tailW * .76, fillY + fillH * .34, coreX, Math.max(tailTop, fillY));
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      ctx.shadowBlur = held || finished ? 14 : 7;
+      const streaks = 6;
+      for (let i = 0; i < streaks; i++) {
+        const seed = (i * 37 + lane * 19) % 100;
+        const phase = ((state.gameTime * (held ? .00135 : .00082) + seed / 100) % 1);
+        const sy = tailTop + phase * tailLen;
+        const local = clamp((sy - tailTop) / tailLen, 0, 1);
+        const laneOffset = Math.sin(seed + state.gameTime * .002) * tailW * .22;
+        const sx = coreX + laneOffset * (0.35 + local * .85);
+        const lit = progress > 0 && local >= 1 - progress - .08;
+        ctx.globalAlpha = (lit ? .82 : .28) * (held || finished ? 1 : .58);
+        ctx.strokeStyle = lit ? "#f8d84a" : frame;
+        ctx.lineWidth = lit ? 2.4 : 1.4;
+        ctx.beginPath();
+        ctx.moveTo(sx - 5, sy - 13);
+        ctx.lineTo(sx + 6, sy + 5);
+        ctx.stroke();
+        drawTinyStar(sx + 7, sy + 8, lit ? 4.2 : 2.8, lit ? "#f8d84a" : frame, lit ? .9 : .42);
+      }
+
+      if ((held || finished) && progress > .02) {
+        const waveY = tailBottom - fillH;
+        ctx.globalAlpha = .26 + pulse * .22;
+        ctx.strokeStyle = "#f8d84a";
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(coreX, waveY, 14 + pulse * 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (finished || progress > .94) {
+        ctx.globalAlpha = .74 + pulse * .22;
+        ctx.strokeStyle = "#f8d84a";
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        ctx.arc(coreX, tailTop + 10, 12 + pulse * 6, 0, Math.PI * 2);
+        ctx.stroke();
+        drawTinyStar(coreX, tailTop + 10, 7 + pulse * 2, "#f8d84a", .95);
+      }
+      ctx.restore();
+    }
+
+    function compactPrompt(prompt) {
+      return prompt
+        .replace(/^int\s+/, "")
+        .replace(/^double\s+/, "")
+        .replace(/\s+/g, " ")
+        .replace(" = ", "=")
+        .replace(";", "");
+    }
+
+    function getNoteBodySprite(w, h, color, note, lane) {
+      const selected = lane === note.selectedLane;
+      const judgedCorrect = note.judged && lane === note.challenge.correctLane;
+      const songAccent = SONGS[state.selectedSong].accent;
+      const cacheKey = [view.dpr, w, h, color, lane, note.isHold ? 1 : 0, selected ? 1 : 0, judgedCorrect ? 1 : 0, songAccent].join("|");
+      const cached = noteBodyCache.get(cacheKey);
+      if (cached) return cached;
+
+      const pad = 40;
+      const surface = createSpriteSurface(w + pad * 2, h + pad * 2);
+      const spriteCtx = surface.ctx;
+      const x = pad;
+      const y = pad;
+      const frame = noteFrameTone(color);
+      const glow = judgedCorrect ? noteFrameTone(songAccent) : selected ? "#f8d84a" : frame;
+      spriteCtx.globalAlpha = 1;
+      spriteCtx.globalCompositeOperation = "source-over";
+      spriteCtx.shadowColor = glow;
+      spriteCtx.shadowBlur = judgedCorrect ? 32 : selected ? 30 : 26;
+      const body = spriteCtx.createLinearGradient(x, y, x, y + h);
+      body.addColorStop(0, selected ? "rgba(248,216,74,.26)" : "rgba(247,244,233,.19)");
+      body.addColorStop(.48, "rgba(27,34,36,.9)");
+      body.addColorStop(1, "rgba(18,23,25,.84)");
+      spriteCtx.fillStyle = body;
+      roundRectOn(spriteCtx, x, y, w, h, 8);
+      spriteCtx.fill();
+      spriteCtx.strokeStyle = glow;
+      spriteCtx.lineWidth = judgedCorrect ? 4 : selected ? 3.5 : 3;
+      roundRectOn(spriteCtx, x + 1, y + 1, w - 2, h - 2, 8);
+      spriteCtx.stroke();
+      spriteCtx.shadowBlur = 0;
+
+      spriteCtx.fillStyle = note.isHold ? "rgba(247,244,233,.92)" : frame;
+      roundRectOn(spriteCtx, x + 8, y + 8, w - 16, 6, 4);
+      spriteCtx.fill();
+      spriteCtx.fillStyle = selected ? "#f8d84a" : frame;
+      roundRectOn(spriteCtx, x + 11, y + 18, 34, 30, 8);
+      spriteCtx.fill();
+      spriteCtx.fillStyle = "#151515";
+      spriteCtx.font = "bold 15px Consolas, 'Courier New', monospace";
+      spriteCtx.textAlign = "center";
+      spriteCtx.textBaseline = "middle";
+      spriteCtx.fillText(["A", "S", "D"][lane], x + 28, y + 27);
+      spriteCtx.font = "bold 13px Consolas, 'Courier New', monospace";
+      spriteCtx.fillText("♪", x + 28, y + 40);
+      spriteCtx.fillStyle = "rgba(247,244,233,.72)";
+      spriteCtx.font = "bold 11px 'Microsoft YaHei', sans-serif";
+      spriteCtx.textAlign = "right";
+      spriteCtx.fillText("答案", x + w - 12, y + 32);
+
+      if (note.isHold) {
+        const labelW = 38;
+        const labelH = 18;
+        spriteCtx.fillStyle = "rgba(248,216,74,.16)";
+        roundRectOn(spriteCtx, x + w - labelW - 10, y + h - labelH - 8, labelW, labelH, 6);
+        spriteCtx.fill();
+        spriteCtx.strokeStyle = "rgba(248,216,74,.58)";
+        spriteCtx.lineWidth = 1;
+        roundRectOn(spriteCtx, x + w - labelW - 10, y + h - labelH - 8, labelW, labelH, 6);
+        spriteCtx.stroke();
+        spriteCtx.fillStyle = "#f8d84a";
+        spriteCtx.font = "bold 10px 'Microsoft YaHei', sans-serif";
+        spriteCtx.textAlign = "center";
+        spriteCtx.textBaseline = "middle";
+        spriteCtx.fillText("长音", x + w - labelW / 2 - 10, y + h - labelH / 2 - 8);
+      }
+
+      return rememberSprite(noteBodyCache, cacheKey, {
+        canvas: surface.canvas,
+        width: surface.width,
+        height: surface.height,
+        pad,
+      }, 48);
+    }
+
+    function wrapPiecesOn(target, pieces, maxWidth) {
+      const lines = [];
+      let line = "";
+      for (const piece of pieces) {
+        const trial = line ? `${line} ${piece}` : piece;
+        if (target.measureText(trial).width > maxWidth && line) {
+          lines.push(line);
+          line = piece;
+        } else {
+          line = trial;
+        }
+      }
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    function drawOptionTextOn(target, text, left, top, maxWidth, maxHeight) {
+      const pieces = optionPieces(text);
+      const answerOnly = /^\d+(?:\.\d)?$/.test(String(text).trim());
+      let fontSize = answerOnly ? (view.w < 720 ? 24 : 30) : (view.w < 720 ? 12 : 14);
+      let lines = [];
+      const minimum = answerOnly ? 18 : 10;
+      while (fontSize >= minimum) {
+        target.font = `bold ${fontSize}px Consolas, 'Courier New', monospace`;
+        lines = wrapPiecesOn(target, pieces, maxWidth);
+        const lineHeight = fontSize + 3;
+        let widest = 0;
+        for (const row of lines) widest = Math.max(widest, target.measureText(row).width);
+        if (lines.length * lineHeight <= maxHeight && widest <= maxWidth) break;
+        fontSize--;
+      }
+      const lineHeight = fontSize + 3;
+      const shown = lines.slice(0, Math.max(1, Math.floor(maxHeight / lineHeight)));
+      const startY = top + Math.max(0, (maxHeight - shown.length * lineHeight) / 2) + lineHeight / 2;
+      target.textAlign = "center";
+      target.textBaseline = "middle";
+      target.globalAlpha = 1;
+      target.globalCompositeOperation = "source-over";
+      target.filter = "brightness(1)";
+      target.shadowOffsetX = 0;
+      target.shadowOffsetY = 0;
+      target.lineWidth = 5;
+      target.strokeStyle = "rgba(0,0,0,.9)";
+      target.fillStyle = "#ffffff";
+      target.shadowColor = "rgba(255,255,255,.72)";
+      target.shadowBlur = 7;
+      const textCx = left + maxWidth / 2;
+      for (let index = 0; index < shown.length; index++) {
+        const y = startY + index * lineHeight;
+        target.strokeText(shown[index], textCx, y);
+        target.fillText(shown[index], textCx, y);
+      }
+      target.shadowBlur = 0;
+    }
+
+    function getNoteTextSprite(text, maxWidth, maxHeight) {
+      const cacheKey = [view.dpr, view.w < 720 ? 1 : 0, maxWidth, maxHeight, text].join("|");
+      const cached = noteTextCache.get(cacheKey);
+      if (cached) return cached;
+      const pad = 14;
+      const surface = createSpriteSurface(maxWidth + pad * 2, maxHeight + pad * 2);
+      drawOptionTextOn(surface.ctx, text, pad, pad, maxWidth, maxHeight);
+      return rememberSprite(noteTextCache, cacheKey, {
+        canvas: surface.canvas,
+        width: surface.width,
+        height: surface.height,
+        pad,
+      }, 384);
+    }
+
+    function warmNoteSprites(notes, start = 0, end = notes.length) {
+      const noteHeight = view.w < 720 ? 90 : 100;
+      const finalIndex = Math.min(end, notes.length);
+      for (let index = start; index < finalIndex; index++) {
+        const note = notes[index];
+        for (let lane = 0; lane < note.challenge.options.length; lane++) {
+          const option = note.challenge.options[lane];
+          getNoteBodySprite(view.noteW, noteHeight, option.color, note, lane);
+          getNoteTextSprite(option.text, view.noteW - 20, noteHeight - (note.isHold ? 66 : 52));
+        }
+      }
+    }
+
+    function queueNoteSpriteWarmup(notes) {
+      const run = ++spriteWarmupRun;
+      let cursor = Math.min(2, notes.length);
+      warmNoteSprites(notes, 0, cursor);
+      function warmBatch() {
+        if (run !== spriteWarmupRun || state.screen !== "play") return;
+        const end = Math.min(notes.length, cursor + 2);
+        warmNoteSprites(notes, cursor, end);
+        cursor = end;
+        if (cursor < notes.length) setTimeout(warmBatch, 24);
+      }
+      if (cursor < notes.length) setTimeout(warmBatch, 24);
+    }
+
+    function drawNoteCard(cx, cy, w, h, color, text, note, lane) {
+      const judged = note.judged;
+      const isCorrectLane = lane === note.challenge.correctLane;
+      const x = cx - w / 2;
+      const y = cy - h / 2;
+      ctx.save();
+      const alpha = judged && !isCorrectLane ? .34 : 1;
+      ctx.globalAlpha = alpha;
+      const frame = noteFrameTone(color);
+
+      if (note.isHold) {
+        drawHoldPulseTail(x, y, w, h, frame, note, lane);
+      }
+      const bodySprite = getNoteBodySprite(w, h, color, note, lane);
+      ctx.drawImage(bodySprite.canvas, x - bodySprite.pad, y - bodySprite.pad, bodySprite.width, bodySprite.height);
+      const textLeft = x + 10;
+      const textTop = y + 48;
+      const textWidth = w - 20;
+      const textHeight = h - (note.isHold ? 66 : 52);
+      const textSprite = getNoteTextSprite(text, textWidth, textHeight);
+      const answerOnly = /^\d+(?:\.\d)?$/.test(String(text).trim());
+      if (answerOnly) {
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+        ctx.filter = "brightness(1)";
+        ctx.drawImage(textSprite.canvas, textLeft - textSprite.pad, textTop - textSprite.pad, textSprite.width, textSprite.height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(textSprite.canvas, textLeft - textSprite.pad, textTop - textSprite.pad, textSprite.width, textSprite.height);
+      }
+      ctx.restore();
+    }
+
+    function optionPieces(text) {
+      let normalized = String(text);
+      [
+        ["(", " ("], [")", ") "], ["==", " == "], ["!=", " != "],
+        [">=", " >= "], ["<=", " <= "], ["%", " % "], ["/", " / "],
+        ["*", " * "], ["+", " + "], ["-", " - "],
+      ].forEach(pair => {
+        normalized = replaceEvery(normalized, pair[0], pair[1]);
+      });
+      return normalized.split(/\s+/).filter(Boolean);
+    }
+
+    function drawParticles() {
+      for (const p of state.particles) {
+        const alpha = Math.max(0, p.life);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = alpha * .24;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * 2.1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawVignette() {
+      ctx.drawImage(vignetteLayer, 0, 0, view.w, view.h);
+    }
+
+    function roundRect(x, y, w, h, r) {
+      const rr = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.arcTo(x + w, y, x + w, y + h, rr);
+      ctx.arcTo(x + w, y + h, x, y + h, rr);
+      ctx.arcTo(x, y + h, x, y, rr);
+      ctx.arcTo(x, y, x + w, y, rr);
+      ctx.closePath();
+    }
+
+    function loop(ts) {
+      const elapsed = Math.max(0, (ts - state.lastTs) / 1000 || 0);
+      const dt = Math.min(.05, elapsed);
+      const gameDt = Math.min(.12, elapsed);
+      state.lastTs = ts;
+      update(dt, gameDt);
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    ui.startBtn.addEventListener("click", beginCountdown);
+    ui.replayBtn.addEventListener("click", beginCountdown);
+    ui.backBtn.addEventListener("click", returnToMenu);
+    ui.exitGameBtn.addEventListener("click", returnToMenu);
+    ui.pauseGameBtn.addEventListener("click", togglePauseGame);
+    ui.resumeGameBtn.addEventListener("click", resumeGame);
+    ui.pauseExitBtn.addEventListener("click", returnToMenu);
+    ui.backToModeBtn.addEventListener("click", () => setMenuStep("mode"));
+    ui.backFromChallengeBtn.addEventListener("click", () => setMenuStep("mode"));
+    ui.guideBtn.addEventListener("click", () => setMenuStep("guide"));
+    ui.backFromGuideBtn.addEventListener("click", () => setMenuStep("mode"));
+    ui.guideDoneBtn.addEventListener("click", () => {
+      state.selectedMode = "write";
+      renderSelectUI();
+      setMenuStep("setup");
+    });
+    guideOptions.forEach((btn, lane) => btn.addEventListener("click", () => tryGuideLane(lane)));
+    function toggleMute() {
+      state.muted = !state.muted;
+      ui.muteBtn.textContent = state.muted ? "音效关闭" : "音效开启";
+      ui.endMuteBtn.textContent = ui.muteBtn.textContent;
+      if (state.muted) {
+        stopMenuMusic();
+        pauseRealGameAudio();
+      } else {
+        if (state.screen === "start") startMenuMusic();
+        if (state.screen === "play" && !state.paused) resumeRealGameAudio();
+      }
+    }
+    ui.muteBtn.addEventListener("click", toggleMute);
+    ui.endMuteBtn.addEventListener("click", toggleMute);
+    laneButtons.forEach((btn, idx) => {
+      btn.addEventListener("pointerdown", e => {
+        e.preventDefault();
+        if (btn.setPointerCapture) btn.setPointerCapture(e.pointerId);
+        hitLane(idx);
+      });
+      btn.addEventListener("pointerup", e => {
+        e.preventDefault();
+        releaseLane(idx);
+      });
+      btn.addEventListener("pointerleave", () => releaseLane(idx));
+      btn.addEventListener("pointercancel", () => releaseLane(idx));
+      btn.addEventListener("lostpointercapture", () => releaseLane(idx));
+    });
+    window.addEventListener("pointerdown", unlockMenuMusic);
+    window.addEventListener("keydown", unlockMenuMusic);
+    window.addEventListener("pageshow", unlockMenuMusic);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) flushChallengeHistory();
+      if (!document.hidden && state.screen === "start") unlockMenuMusic();
+    });
+    window.addEventListener("pagehide", flushChallengeHistory);
+    function laneFromKey(key) {
+      const lower = key.toLowerCase();
+      if (lower === "a" || lower === "arrowleft") return 0;
+      if (lower === "s" || lower === "arrowdown") return 1;
+      if (lower === "d" || lower === "arrowright") return 2;
+      return null;
+    }
+    window.addEventListener("keydown", e => {
+      const lane = laneFromKey(e.key);
+      if (lane !== null) {
+        e.preventDefault();
+        if (!e.repeat && !tryGuideLane(lane)) hitLane(lane);
+        return;
+      }
+      const key = e.key.toLowerCase();
+      if (key === "escape" && state.screen === "play") {
+        e.preventDefault();
+        togglePauseGame();
+        return;
+      }
+      if ((key === " " || key === "enter") && state.screen !== "play") {
+        e.preventDefault();
+        if (state.screen === "start" && state.menuStep === "mode") setMenuStep(state.selectedMode === "challenge" ? "challenge" : "setup");
+        else beginCountdown();
+      }
+    });
+    window.addEventListener("keyup", e => {
+      const lane = laneFromKey(e.key);
+      if (lane === null) return;
+      e.preventDefault();
+      releaseLane(lane);
+    });
+
+    renderSelectUI();
+    setMenuStep("mode");
+    updateHUD();
+    unlockMenuMusic();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
